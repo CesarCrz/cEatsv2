@@ -46,6 +46,7 @@ export function getLoginVerificationTemplate(codigo: string, nombre: string): Em
     }
 }
 
+// En lib/email/templates.ts - actualizar la función getNewBrachTemplate
 export function getNewBrachTemplate(
     nombreSucursal: string,
     codigoTemporal: string,

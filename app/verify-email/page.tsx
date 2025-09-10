@@ -7,6 +7,13 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Mail, ArrowRight, RefreshCw } from "lucide-react"
 import Link from "next/link"
+import { useToast } from "@/components/ui/use-toast"
+import { useRouter } from "next/navigation"
+import { useAuth } from "@/hooks/use-auth"
+
+const { toast } = useToast()
+const router = useRouter()
+const { user } = useAuth()
 
 export default function VerifyEmailPage() {
   const [code, setCode] = useState(["", "", "", "", "", ""])
@@ -33,6 +40,7 @@ export default function VerifyEmailPage() {
     }
   }
 
+  // Actualiza la función handleSubmit
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     const verificationCode = code.join("")
@@ -41,20 +49,82 @@ export default function VerifyEmailPage() {
 
     setIsLoading(true)
 
-    // Simular verificación
-    await new Promise((resolve) => setTimeout(resolve, 2000))
+    try {
+      const response = await fetch('/api/auth/verify-code', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ 
+          email: user?.email, 
+          code: verificationCode 
+        }),
+      })
 
-    console.log("Verification code:", verificationCode)
-    setIsLoading(false)
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Error al verificar el código')
+      }
+
+      // Mostrar toast de éxito
+      toast({
+        title: "¡Verificación exitosa!",
+        description: "Tu correo ha sido verificado correctamente.",
+        variant: "default",
+      })
+
+      // Redirigir al dashboard
+      router.push('/dashboard')
+    } catch (error: any) {
+      console.error('Error:', error)
+      // Mostrar toast de error
+      toast({
+        title: "Error de verificación",
+        description: error.message || "No se pudo verificar el código. Inténtalo nuevamente.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsLoading(false)
+    }
   }
 
+  // Actualiza la función handleResendCode
   const handleResendCode = async () => {
     setIsResending(true)
 
-    // Simular reenvío
-    await new Promise((resolve) => setTimeout(resolve, 1500))
+    try {
+      const response = await fetch('/api/auth/resend-verification', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email: user?.email }),
+      })
 
-    setIsResending(false)
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Error al reenviar el código')
+      }
+
+      // Mostrar toast de éxito
+      toast({
+        title: "Código reenviado",
+        description: "Hemos enviado un nuevo código a tu correo electrónico.",
+        variant: "default",
+      })
+    } catch (error: any) {
+      console.error('Error:', error)
+      // Mostrar toast de error
+      toast({
+        title: "Error al reenviar",
+        description: error.message || "No se pudo reenviar el código. Inténtalo nuevamente.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsResending(false)
+    }
   }
 
   useEffect(() => {
@@ -92,7 +162,7 @@ export default function VerifyEmailPage() {
                 {code.map((digit, index) => (
                   <input
                     key={index}
-                    ref={(el) => (inputRefs.current[index] = el)}
+                    ref={(el) => {inputRefs.current[index] = el}}
                     type="text"
                     inputMode="numeric"
                     pattern="[0-9]"
