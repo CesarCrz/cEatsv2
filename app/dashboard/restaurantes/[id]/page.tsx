@@ -23,54 +23,28 @@ import {
     Loader2,
     TrendingUp,
     DollarSign,
+    Volume2,
+    VolumeX,
     ShoppingBag,
     MapPin,
 } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { Pedido, Sucursal, Analytics } from "@/types/pedidos"
 import { useAuth } from "@/hooks/use-auth"
 import { createClient } from "@/lib/supabase/client"
+import { usePedidosRealtime } from "@/hooks/use-pedidos-realtime"
+
+// Extender Sucursal para incluir campos calculados
+interface SucursalConStats extends Sucursal {
+    pedidos_hoy: number
+    ingresos_hoy: number
+}
 
 interface RestauranteDashboardProps {
   params: { id: string }
 }
 
-interface Sucursal {
-  id: string
-  nombre: string
-  direccion: string
-  telefono: string
-  estado: string
-  pedidos_hoy: number
-  ingresos_hoy: number
-}
-
-interface Pedido {
-  id: string
-  whatsapp_order_id: string
-  cliente_nombre: string
-  cliente_telefono: string
-  total: number
-  estado: string
-  fecha_pedido: string
-  sucursal_nombre: string
-  total_items: number
-  items: Array<{
-    id: string
-    producto_nombre: string
-    cantidad: number
-    precio_unitario: number
-    precio_total: number
-    notas_item?: string
-  }>
-}
-
-interface Analytics {
-  total_pedidos_hoy: number
-  ingresos_hoy: number
-  pedidos_pendientes: number
-  total_sucursales: number
-}
 
 export default function RestauranteDashboard({ params }: RestauranteDashboardProps) {
     const { user } = useAuth()
@@ -79,8 +53,7 @@ export default function RestauranteDashboard({ params }: RestauranteDashboardPro
     const supabase = createClient()
     
     const [loading, setLoading] = useState(true)
-    const [sucursales, setSucursales] = useState<Sucursal[]>([])
-    const [pedidosRecientes, setPedidosRecientes] = useState<Pedido[]>([])
+    const [sucursales, setSucursales] = useState<SucursalConStats[]>([])
     const [analytics, setAnalytics] = useState<Analytics>({
         total_pedidos_hoy: 0,
         ingresos_hoy: 0,
@@ -90,6 +63,33 @@ export default function RestauranteDashboard({ params }: RestauranteDashboardPro
     const [selectedOrder, setSelectedOrder] = useState<Pedido | null>(null)
     const [orderToCancel, setOrderToCancel] = useState<Pedido | null>(null)
 
+    // Hook de tiempo real para todas las sucursales del restaurante
+    const {
+        pedidos: pedidosRecientes,
+        isConnected,
+        newOrdersCount: nuevos,
+        loading: loadingPedidos,
+        startLoopingSound,
+        stopLoopingSound,
+        markOrdersAsSeen,
+        toggleAudio,
+        isAudioEnabled
+    } = usePedidosRealtime({
+        sucursalIds: sucursales.map(s => s.id), // Todas las sucursales
+        enableSound: true,
+        enableBrowserNotification: true,
+        onNewOrder: (pedido) => {
+            console.log('🍽️ Nuevo pedido recibido en restaurante:', pedido.whatsapp_order_id, 'Sucursal:', pedido.nombre_sucursal)
+            // Recargar analytics cuando llega nuevo pedido
+            cargarAnalytics()
+        },
+        onOrderUpdate: (pedido) => {
+            console.log('📝 Pedido actualizado en restaurante:', pedido.whatsapp_order_id, pedido.estado)
+            // Recargar analytics cuando se actualiza pedido
+            cargarAnalytics()
+        }
+    })
+
     // Verificar acceso al restaurante
     const verificarAcceso = async () => {
         if (!user) {
@@ -97,14 +97,18 @@ export default function RestauranteDashboard({ params }: RestauranteDashboardPro
             return false
         }
 
-        const { data: restaurante } = await supabase
-            .from('restaurantes')
-            .select('*')
-            .eq('id', restauranteId)
-            .eq('owner_id', user.id)
+        const { data: userProfile } = await supabase
+            .from('user_profiles')
+            .select('restaurante_id')
+            .eq('id', user.id)
             .single()
 
-        if (!restaurante) {
+        if (!userProfile) {
+            router.push('/dashboard')
+            return false
+        }
+
+        if (userProfile.restaurante_id !== restauranteId) {
             router.push('/dashboard')
             return false
         }
@@ -118,13 +122,14 @@ export default function RestauranteDashboard({ params }: RestauranteDashboardPro
             .from('sucursales')
             .select(`
                 id,
-                nombre,
+                nombre_sucursal,
                 direccion,
                 telefono,
-                estado
+                is_active,
+                restaurante_id
             `)
             .eq('restaurante_id', restauranteId)
-            .order('nombre')
+            .order('nombre_sucursal')
 
         if (error) {
             console.error('Error cargando sucursales:', error)
@@ -156,31 +161,6 @@ export default function RestauranteDashboard({ params }: RestauranteDashboardPro
         )
 
         setSucursales(sucursalesConStats)
-    }
-
-    // Cargar pedidos recientes de todas las sucursales
-    const cargarPedidosRecientes = async () => {
-        const { data: pedidos, error } = await supabase
-            .from('pedidos_completos')
-            .select(`
-                *,
-                sucursales!inner(nombre)
-            `)
-            .in('sucursal_id', sucursales.map(s => s.id))
-            .order('fecha_pedido', { ascending: false })
-            .limit(10)
-
-        if (error) {
-            console.error('Error cargando pedidos:', error)
-            return
-        }
-
-        const pedidosFormateados = (pedidos || []).map(pedido => ({
-            ...pedido,
-            sucursal_nombre: pedido.sucursales?.nombre || 'Sin nombre'
-        }))
-
-        setPedidosRecientes(pedidosFormateados)
     }
 
     // Cargar analytics generales
@@ -227,8 +207,7 @@ export default function RestauranteDashboard({ params }: RestauranteDashboardPro
             return
         }
 
-        // Recargar datos
-        await cargarPedidosRecientes()
+        // Solo recargar analytics, los pedidos se actualizan por realtime
         await cargarAnalytics()
     }
 
@@ -263,7 +242,6 @@ export default function RestauranteDashboard({ params }: RestauranteDashboardPro
 
     useEffect(() => {
         if (sucursales.length > 0) {
-            cargarPedidosRecientes()
             cargarAnalytics()
         }
     }, [sucursales])
@@ -284,9 +262,44 @@ export default function RestauranteDashboard({ params }: RestauranteDashboardPro
                     <div className="flex h-16 justify-between items-center">
                         <div className="flex items-center">
                             <ChefHat className="h-8 w-8 text-orange-500" />
-                            <h1 className="ml-2 text-xl font-semibold text-gray-900 dark:text-white">
-                                Dashboard Restaurante
-                            </h1>
+                            <div className="ml-2">
+                                <h1 className="text-xl font-semibold text-gray-900 dark:text-white">
+                                    Dashboard Restaurante
+                                </h1>
+                                {/* Indicador de conexión */}
+                                <div className="flex items-center space-x-2 text-sm">
+                                    <div className={`h-2 w-2 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'}`} />
+                                    <span className={isConnected ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}>
+                                        {isConnected ? 'En línea' : 'Desconectado'}
+                                    </span>
+                                    {nuevos > 0 && (
+                                        <>
+                                            <span className="text-gray-400">•</span>
+                                            <span className="text-orange-600 dark:text-orange-400 font-medium">
+                                                {nuevos} pedido{nuevos === 1 ? '' : 's'} nuevo{nuevos === 1 ? '' : 's'}
+                                            </span>
+                                        </>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                            {/* Control de audio */}
+                            {nuevos > 0 && (
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={toggleAudio}
+                                    className="flex items-center space-x-1"
+                                >
+                                    {isAudioEnabled ? (
+                                        <Volume2 className="h-4 w-4" />
+                                    ) : (
+                                        <VolumeX className="h-4 w-4" />
+                                    )}
+                                    <span>{isAudioEnabled ? 'Silenciar' : 'Activar'}</span>
+                                </Button>
+                            )}
                         </div>
                         <DropdownMenu>
                             <DropdownMenuTrigger asChild>
@@ -371,7 +384,7 @@ export default function RestauranteDashboard({ params }: RestauranteDashboardPro
                                         onClick={() => router.push(`/dashboard/sucursales/${sucursal.id}`)}
                                     >
                                         <div className="flex-1">
-                                            <h3 className="font-medium">{sucursal.nombre}</h3>
+                                            <h3 className="font-medium">{sucursal.nombre_sucursal}</h3>
                                             <p className="text-sm text-gray-500 flex items-center">
                                                 <MapPin className="mr-1 h-3 w-3" />
                                                 {sucursal.direccion}
@@ -381,8 +394,8 @@ export default function RestauranteDashboard({ params }: RestauranteDashboardPro
                                                 <span>${sucursal.ingresos_hoy.toFixed(2)} ingresos</span>
                                             </div>
                                         </div>
-                                        <Badge className={sucursal.estado === 'activo' ? 'bg-green-500' : 'bg-red-500'}>
-                                            {sucursal.estado}
+                                        <Badge className={sucursal.is_active ? 'bg-green-500' : 'bg-red-500'}>
+                                            {sucursal.is_active ? 'Activa' : 'Inactiva'}
                                         </Badge>
                                     </div>
                                 ))}
@@ -414,7 +427,7 @@ export default function RestauranteDashboard({ params }: RestauranteDashboardPro
                                                 </Badge>
                                             </div>
                                             <p className="text-sm text-gray-500">{pedido.cliente_nombre}</p>
-                                            <p className="text-sm text-gray-400">{pedido.sucursal_nombre}</p>
+                                            <p className="text-sm text-gray-400">{pedido.nombre_sucursal}</p>
                                             <div className="flex items-center justify-between mt-2">
                                                 <span className="text-sm font-medium">${pedido.total}</span>
                                                 <span className="text-xs text-gray-500">
@@ -441,9 +454,10 @@ export default function RestauranteDashboard({ params }: RestauranteDashboardPro
 
             {orderToCancel && (
                 <CancelOrderModal
-                    order={orderToCancel}
+                    isOpen={!!orderToCancel}
+                    orderId={orderToCancel.id}
                     onClose={() => setOrderToCancel(null)}
-                    onConfirm={() => {
+                    onConfirm={(reason) => {
                         actualizarEstadoPedido(orderToCancel.id, 'cancelado')
                         setOrderToCancel(null)
                     }}

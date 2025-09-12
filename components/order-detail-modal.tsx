@@ -4,38 +4,10 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 import { X, Clock, CheckCircle, AlertTriangle, Truck, Phone, User, MapPin } from "lucide-react"
-
-interface OrderItem {
-  id: string
-  producto_nombre: string
-  producto_descripcion?: string
-  cantidad: number
-  precio_unitario: number
-  precio_total: number
-  producto_categoria?: string
-  notas_item?: string
-}
-
-interface Order {
-  id: string
-  whatsapp_order_id: string
-  cliente_nombre: string
-  cliente_telefono: string
-  subtotal: number
-  impuestos: number
-  total: number
-  estado: string
-  fecha_pedido: string
-  fecha_estimada_entrega?: string
-  fecha_entrega_real?: string
-  notas?: string
-  total_items: number
-  items: OrderItem[]
-  sucursal_nombre?: string
-}
+import { Pedido } from "@/types/pedidos"
 
 interface OrderDetailModalProps {
-  order: Order | null
+  order: Pedido | null
   onClose: () => void
   onStatusChange?: (orderId: string, newStatus: string) => void
 }
@@ -124,6 +96,35 @@ export function OrderDetailModal({
             </div>
           </div>
 
+          {/* Información de Entrega */}
+          <div className="space-y-3">
+            <h3 className="text-lg font-semibold">Información de Entrega</h3>
+            <div className="grid grid-cols-1 gap-2 text-sm">
+              <div className="flex justify-between">
+                <span className="text-gray-500">Tipo de entrega:</span>
+                <span className="font-medium capitalize">{order.tipo_entrega}</span>
+              </div>
+              {order.tipo_entrega === 'domicilio' && order.direccion_entrega && (
+                <div className="flex justify-between">
+                  <span className="text-gray-500">Dirección:</span>
+                  <span className="font-medium">{order.direccion_entrega}</span>
+                </div>
+              )}
+              {order.tipo_entrega === 'mesa' && order.mesa_numero && (
+                <div className="flex justify-between">
+                  <span className="text-gray-500">Mesa:</span>
+                  <span className="font-medium">#{order.mesa_numero}</span>
+                </div>
+              )}
+              {order.metodo_pago && (
+                <div className="flex justify-between">
+                  <span className="text-gray-500">Método de pago:</span>
+                  <span className="font-medium capitalize">{order.metodo_pago}</span>
+                </div>
+              )}
+            </div>
+          </div>
+
           {/* Información de Fechas */}
           <div className="space-y-3">
             <h3 className="text-lg font-semibold">Información del Pedido</h3>
@@ -144,10 +145,10 @@ export function OrderDetailModal({
                   <span className="font-medium text-green-600">{formatearFecha(order.fecha_entrega_real)}</span>
                 </div>
               )}
-              {order.sucursal_nombre && (
+              {order.nombre_sucursal && (
                 <div className="flex justify-between">
                   <span className="text-gray-500">Sucursal:</span>
-                  <span className="font-medium">{order.sucursal_nombre}</span>
+                  <span className="font-medium">{order.nombre_sucursal}</span>
                 </div>
               )}
             </div>
@@ -279,158 +280,6 @@ export function OrderDetailModal({
               </div>
             </>
           )}
-        </div>
-      </DialogContent>
-    </Dialog>
-  )
-}
-
-  const handleMarkReady = () => {
-    onMarkReady?.(order.id)
-    onClose()
-  }
-
-  const handleDeliver = () => {
-    onDeliverOrder?.(order.id)
-    onClose()
-  }
-
-  const handleCancel = () => {
-    onCancelOrder?.(order.id)
-  }
-
-  const getStatusIcon = () => {
-    switch (order.status) {
-      case "new":
-        return <AlertTriangle className="w-4 h-4 text-green-600" />
-      case "preparing":
-        return <Clock className="w-4 h-4 text-primary" />
-      case "ready":
-        return <CheckCircle className="w-4 h-4 text-green-600" />
-      default:
-        return <Clock className="w-4 h-4 text-primary" />
-    }
-  }
-
-  return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-md glass-strong border-0">
-        <DialogHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
-          <div className="flex items-center space-x-3">
-            <div className="w-8 h-8 bg-primary/10 rounded-lg flex items-center justify-center">{getStatusIcon()}</div>
-            <DialogTitle className="text-lg font-bold text-primary">{order.id}</DialogTitle>
-          </div>
-          <Button variant="ghost" size="sm" onClick={onClose} className="cursor-pointer">
-            <X className="w-4 h-4" />
-          </Button>
-        </DialogHeader>
-
-        <div className="space-y-4">
-          {/* Customer Info */}
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-muted-foreground">Cliente:</span>
-              <span className="font-medium">{order.customer}</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-muted-foreground">Sucursal:</span>
-              <span className="font-medium">{order.restaurant}</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-muted-foreground">Entregar a:</span>
-              <span className="font-medium">{order.customer}</span>
-            </div>
-          </div>
-
-          <Separator />
-
-          {/* Order Items */}
-          <div className="space-y-3">
-            {order.items.map((item, index) => (
-              <div key={index} className="flex items-center justify-between">
-                <div className="flex-1">
-                  <div className="flex items-center space-x-2">
-                    <Badge
-                      variant="secondary"
-                      className="w-6 h-6 rounded-full p-0 flex items-center justify-center text-xs"
-                    >
-                      {item.quantity}
-                    </Badge>
-                    <span className="font-medium">{item.name}</span>
-                  </div>
-                </div>
-                <span className="font-bold text-green-600">${item.price}</span>
-              </div>
-            ))}
-          </div>
-
-          {/* Comments */}
-          {order.comments && (
-            <>
-              <Separator />
-              <div>
-                <span className="text-sm font-medium text-muted-foreground">Comentarios:</span>
-                <p className="text-sm mt-1 p-2 bg-muted/20 rounded-lg">{order.comments}</p>
-              </div>
-            </>
-          )}
-
-          <Separator />
-
-          {/* Totals */}
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-muted-foreground">Subtotal</span>
-              <span className="font-medium">${order.subtotal}</span>
-            </div>
-            <div className="flex items-center justify-between font-bold text-lg">
-              <span>Total</span>
-              <span>${order.total}</span>
-            </div>
-          </div>
-
-          <div className="flex space-x-3 pt-4">
-            {order.status === "new" ? (
-              // New orders (green): Only "Aceptar Pedido" button
-              <Button
-                onClick={handleAccept}
-                className="flex-1 bg-green-600 hover:bg-green-700 text-white cursor-pointer"
-              >
-                <CheckCircle className="w-4 h-4 mr-2" />
-                Aceptar Pedido
-              </Button>
-            ) : order.status === "preparing" ? (
-              // Preparing orders: "Listo" and "Cancelar Pedido" buttons
-              <>
-                <Button variant="destructive" onClick={handleCancel} className="flex-1 cursor-pointer">
-                  <AlertTriangle className="w-4 h-4 mr-2" />
-                  Cancelar Pedido
-                </Button>
-                <Button
-                  onClick={handleMarkReady}
-                  className="flex-1 bg-blue-600 hover:bg-blue-700 text-white cursor-pointer"
-                >
-                  <CheckCircle className="w-4 h-4 mr-2" />
-                  Listo
-                </Button>
-              </>
-            ) : (
-              // Ready orders: "Entregar" button and "Cancelado por Cliente" option
-              <>
-                <Button variant="outline" onClick={handleCancel} className="cursor-pointer bg-transparent">
-                  <AlertTriangle className="w-4 h-4 mr-2" />
-                  Cancelado por Cliente
-                </Button>
-                <Button
-                  onClick={handleDeliver}
-                  className="flex-1 bg-green-600 hover:bg-green-700 text-white cursor-pointer"
-                >
-                  <Truck className="w-4 h-4 mr-2" />
-                  Entregar
-                </Button>
-              </>
-            )}
-          </div>
         </div>
       </DialogContent>
     </Dialog>

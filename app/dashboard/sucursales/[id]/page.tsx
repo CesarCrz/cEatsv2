@@ -32,52 +32,18 @@ import {
 import { useRouter } from "next/navigation"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Pedido, Sucursal, Analytics } from "@/types/pedidos"
 import { useAuth } from "@/hooks/use-auth"
 import { createClient } from "@/lib/supabase/client"
+import { usePedidosRealtime } from "@/hooks/use-pedidos-realtime"
+
 
 interface SucursalDashboardProps {
   params: { id: string }
 }
 
-interface Sucursal {
-  id: string
-  nombre: string
-  direccion: string
-  telefono: string
-  estado: string
-  restaurante_id: string
-}
-
-interface Pedido {
-  id: string
-  whatsapp_order_id: string
-  cliente_nombre: string
-  cliente_telefono: string
-  subtotal: number
-  impuestos: number
-  total: number
-  estado: string
-  fecha_pedido: string
-  fecha_estimada_entrega?: string
-  fecha_entrega_real?: string
-  notas?: string
-  total_items: number
-  items: Array<{
-    id: string
-    producto_nombre: string
-    producto_descripcion?: string
-    cantidad: number
-    precio_unitario: number
-    precio_total: number
-    producto_categoria?: string
-    notas_item?: string
-  }>
-}
-
-interface Analytics {
-  pedidos_hoy: number
-  ingresos_hoy: number
-  pedidos_pendientes: number
+// Analytics específicos para sucursal (extiende el tipo base)
+interface SucursalAnalytics extends Analytics {
   pedidos_completados: number
   ticket_promedio: number
   productos_mas_vendidos: Array<{
@@ -95,12 +61,11 @@ export default function SucursalDashboard({ params }: SucursalDashboardProps) {
     
     const [loading, setLoading] = useState(true)
     const [sucursal, setSucursal] = useState<Sucursal | null>(null)
-    const [pedidos, setPedidos] = useState<Pedido[]>([])
-    const [filteredPedidos, setFilteredPedidos] = useState<Pedido[]>([])
-    const [analytics, setAnalytics] = useState<Analytics>({
-        pedidos_hoy: 0,
+    const [analytics, setAnalytics] = useState<SucursalAnalytics>({
+        total_pedidos_hoy: 0,
         ingresos_hoy: 0,
         pedidos_pendientes: 0,
+        total_sucursales: 0,
         pedidos_completados: 0,
         ticket_promedio: 0,
         productos_mas_vendidos: []
@@ -109,6 +74,35 @@ export default function SucursalDashboard({ params }: SucursalDashboardProps) {
     const [orderToCancel, setOrderToCancel] = useState<Pedido | null>(null)
     const [estadoFiltro, setEstadoFiltro] = useState<string>('todos')
     const [refreshing, setRefreshing] = useState(false)
+    const [showOrderModal, setShowOrderModal] = useState(false)
+
+    // Hook de tiempo real
+    const {
+        pedidos,
+        isConnected,
+        newOrdersCount,
+        loading: loadingPedidos,
+        startLoopingSound,
+        stopLoopingSound,
+        markOrdersAsSeen
+    } = usePedidosRealtime({
+        sucursalIds: [sucursalId],
+        enableSound: true,
+        enableBrowserNotification: true,
+        onNewOrder: (pedido) => {
+            console.log('🍽️ Nuevo pedido recibido:', pedido.whatsapp_order_id)
+            // Recargar analytics cuando llega nuevo pedido
+            cargarAnalytics()
+        },
+        onOrderUpdate: (pedido) => {
+            console.log('📝 Pedido actualizado:', pedido.whatsapp_order_id, pedido.estado)
+            // Recargar analytics cuando se actualiza pedido
+            cargarAnalytics()
+        }
+    })
+
+    // Estado local para filtros
+    const [filteredPedidos, setFilteredPedidos] = useState<Pedido[]>([])
 
     // Verificar acceso a la sucursal
     const verificarAcceso = async () => {
@@ -117,16 +111,26 @@ export default function SucursalDashboard({ params }: SucursalDashboardProps) {
             return false
         }
 
-        const { data: sucursalData } = await supabase
-            .from('sucursales')
-            .select(`
-                *,
-                restaurantes!inner(owner_id)
-            `)
-            .eq('id', sucursalId)
+        // Verificar que el usuario tenga acceso a esta sucursal a través de su restaurante
+        const { data: userProfile } = await supabase
+            .from('user_profiles')
+            .select('restaurante_id')
+            .eq('id', user.id)
             .single()
 
-        if (!sucursalData || sucursalData.restaurantes.owner_id !== user.id) {
+        if (!userProfile) {
+            router.push('/dashboard')
+            return false
+        }
+
+        const { data: sucursalData } = await supabase
+            .from('sucursales')
+            .select('*')
+            .eq('id', sucursalId)
+            .eq('restaurante_id', userProfile.restaurante_id)
+            .single()
+
+        if (!sucursalData) {
             router.push('/dashboard')
             return false
         }
@@ -135,22 +139,6 @@ export default function SucursalDashboard({ params }: SucursalDashboardProps) {
         return true
     }
 
-    // Cargar pedidos de la sucursal
-    const cargarPedidos = async () => {
-        const { data: pedidosData, error } = await supabase
-            .from('pedidos_completos')
-            .select('*')
-            .eq('sucursal_id', sucursalId)
-            .order('fecha_pedido', { ascending: false })
-
-        if (error) {
-            console.error('Error cargando pedidos:', error)
-            return
-        }
-
-        setPedidos(pedidosData || [])
-        setFilteredPedidos(pedidosData || [])
-    }
 
     // Cargar analytics de la sucursal
     const cargarAnalytics = async () => {
@@ -214,9 +202,10 @@ export default function SucursalDashboard({ params }: SucursalDashboardProps) {
             .slice(0, 5)
 
         setAnalytics({
-            pedidos_hoy: pedidosNoCancelados.length,
+            total_pedidos_hoy: pedidosNoCancelados.length,
             ingresos_hoy: pedidosNoCancelados.reduce((sum, p) => sum + Number(p.total), 0),
             pedidos_pendientes: pedidosPendientes?.length || 0,
+            total_sucursales: 1, // Para sucursal individual
             pedidos_completados: pedidosCompletadosHoy.length,
             ticket_promedio: pedidosCompletadosHoy.length > 0 
                 ? pedidosCompletadosHoy.reduce((sum, p) => sum + Number(p.total), 0) / pedidosCompletadosHoy.length 
@@ -242,8 +231,8 @@ export default function SucursalDashboard({ params }: SucursalDashboardProps) {
             return
         }
 
-        // Recargar datos
-        await Promise.all([cargarPedidos(), cargarAnalytics()])
+        // Solo recargar analytics, los pedidos se actualizan por realtime
+        await cargarAnalytics()
         setRefreshing(false)
     }
 
@@ -260,7 +249,8 @@ export default function SucursalDashboard({ params }: SucursalDashboardProps) {
     // Refrescar datos
     const refrescarDatos = async () => {
         setRefreshing(true)
-        await Promise.all([cargarPedidos(), cargarAnalytics()])
+        // Solo recargar analytics, los pedidos se manejan por realtime
+        await cargarAnalytics()
         setRefreshing(false)
     }
 
@@ -296,12 +286,18 @@ export default function SucursalDashboard({ params }: SucursalDashboardProps) {
             const tieneAcceso = await verificarAcceso()
             if (!tieneAcceso) return
 
-            await Promise.all([cargarPedidos(), cargarAnalytics()])
+            // Solo cargar analytics, los pedidos los maneja el hook
+            await cargarAnalytics()
             setLoading(false)
         }
 
         inicializar()
     }, [user, sucursalId])
+
+    // Nuevo useEffect para sincronizar filtros con pedidos del hook
+    useEffect(() => {
+        filtrarPedidos(estadoFiltro)
+    }, [pedidos, estadoFiltro])
 
     if (loading) {
         return (
@@ -334,7 +330,7 @@ export default function SucursalDashboard({ params }: SucursalDashboardProps) {
                             <Building className="h-8 w-8 text-orange-500" />
                             <div className="ml-2">
                                 <h1 className="text-xl font-semibold text-gray-900 dark:text-white">
-                                    {sucursal.nombre}
+                                    {sucursal.nombre_sucursal}
                                 </h1>
                                 <p className="text-sm text-gray-500 flex items-center">
                                     <MapPin className="mr-1 h-3 w-3" />
@@ -351,6 +347,21 @@ export default function SucursalDashboard({ params }: SucursalDashboardProps) {
                             >
                                 <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
                             </Button>
+                            {/* Indicador de conexión en tiempo real */}
+                            <div className="flex items-center space-x-2">
+                                <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'}`} />
+                                <span className="text-sm text-gray-500">
+                                    {isConnected ? 'Conectado' : 'Desconectado'}
+                                </span>
+                                {newOrdersCount > 0 && (
+                                    <Badge 
+                                        className="bg-red-500 text-white cursor-pointer hover:bg-red-600" 
+                                        onClick={() => markOrdersAsSeen()}
+                                    >
+                                        {newOrdersCount}
+                                    </Badge>
+                                )}
+                            </div>
                             <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
                                     <Button variant="ghost" size="sm">
@@ -386,7 +397,7 @@ export default function SucursalDashboard({ params }: SucursalDashboardProps) {
                             <ShoppingBag className="h-4 w-4 text-muted-foreground" />
                         </CardHeader>
                         <CardContent>
-                            <div className="text-2xl font-bold">{analytics.pedidos_hoy}</div>
+                            <div className="text-2xl font-bold">{analytics.total_pedidos_hoy}</div>
                         </CardContent>
                     </Card>
 
@@ -479,7 +490,13 @@ export default function SucursalDashboard({ params }: SucursalDashboardProps) {
                                     <Card 
                                         key={pedido.id} 
                                         className="hover:shadow-md transition-shadow cursor-pointer"
-                                        onClick={() => setSelectedOrder(pedido)}
+                                        onClick={() => {
+                                            // Parar audio cuando se abre el modal
+                                            if (pedido.estado === 'pendiente') {
+                                                stopLoopingSound(pedido.id)
+                                            }
+                                            setSelectedOrder(pedido)
+                                        }}
                                     >
                                         <CardContent className="p-6">
                                             <div className="flex items-center justify-between mb-4">
@@ -630,16 +647,29 @@ export default function SucursalDashboard({ params }: SucursalDashboardProps) {
             {selectedOrder && (
                 <OrderDetailModal
                     order={selectedOrder}
-                    onClose={() => setSelectedOrder(null)}
-                    onStatusChange={actualizarEstadoPedido}
+                    onClose={() => {
+                        // Si se cierra sin aceptar y el pedido sigue pendiente, reanudar sonido
+                        if (selectedOrder.estado === 'pendiente') {
+                            startLoopingSound(selectedOrder.id)
+                        }
+                        setSelectedOrder(null)
+                    }}
+                    onStatusChange={(orderId, newStatus) => {
+                        // Parar sonido cuando se acepta el pedido
+                        if (newStatus === 'confirmado' || newStatus === 'preparando') {
+                            stopLoopingSound(orderId)
+                        }
+                        actualizarEstadoPedido(orderId, newStatus)
+                    }}
                 />
             )}
 
             {orderToCancel && (
                 <CancelOrderModal
-                    order={orderToCancel}
+                    isOpen={!!orderToCancel}
+                    orderId={orderToCancel.id}
                     onClose={() => setOrderToCancel(null)}
-                    onConfirm={() => {
+                    onConfirm={(reason) => {
                         actualizarEstadoPedido(orderToCancel.id, 'cancelado')
                         setOrderToCancel(null)
                     }}
