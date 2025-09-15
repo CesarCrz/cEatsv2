@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge"
 import { OrderDetailModal } from "@/components/order-detail-modal"
 import { History, ArrowLeft, Search, Filter, Download, Calendar } from "lucide-react"
 import Link from "next/link"
+import { usePedidos } from "@/hooks/use-pedidos"
 
 export default function HistorialPage() {
   const [searchTerm, setSearchTerm] = useState("")
@@ -16,74 +17,23 @@ export default function HistorialPage() {
   const [dateFilter, setDateFilter] = useState("7d")
   const [selectedOrder, setSelectedOrder] = useState<any>(null)
   const [showOrderDetail, setShowOrderDetail] = useState(false)
+  
+  const { pedidos, isLoading, error } = usePedidos()
 
-  const [historicalOrders] = useState([
-    {
-      id: "SORU3545805052395974",
-      customer: "César",
-      restaurant: "TESORO",
-      time: "Completado",
-      items: 3,
-      total: 450,
-      status: "completed" as const,
-      date: "2024-01-15",
-      itemsList: [
-        { name: "Sushi Mar y Tierra", quantity: 2, price: 218 },
-        { name: "Sushi culichi", quantity: 2, price: 200 },
-      ],
-      comments: "Sin camarón por favor y tierra con pura tierra",
-      subtotal: 418,
-    },
-    {
-      id: "SORU1613673736258049",
-      customer: "María González",
-      restaurant: "TESORO",
-      time: "Completado",
-      items: 2,
-      total: 320,
-      status: "completed" as const,
-      date: "2024-01-15",
-      itemsList: [{ name: "Tacos de Pescado", quantity: 3, price: 320 }],
-      subtotal: 320,
-    },
-    {
-      id: "SORU6554580636827709",
-      customer: "Mel",
-      restaurant: "ITESO",
-      time: "Cancelado",
-      items: 4,
-      total: 680,
-      status: "cancelled" as const,
-      date: "2024-01-14",
-      itemsList: [{ name: "Combo Especial", quantity: 1, price: 680 }],
-      subtotal: 680,
-      cancelReason: "Cliente no disponible para entrega",
-    },
-    {
-      id: "SORU1098615288392909",
-      customer: "Ana López",
-      restaurant: "TESORO",
-      time: "Completado",
-      items: 1,
-      total: 180,
-      status: "completed" as const,
-      date: "2024-01-14",
-      itemsList: [{ name: "Ensalada César", quantity: 1, price: 180 }],
-      subtotal: 180,
-    },
-    {
-      id: "SORU3812803212345111",
-      customer: "Carlos Ruiz",
-      restaurant: "TESORO",
-      time: "Completado",
-      items: 2,
-      total: 250,
-      status: "completed" as const,
-      date: "2024-01-13",
-      itemsList: [{ name: "Hamburguesa Clásica", quantity: 2, price: 250 }],
-      subtotal: 250,
-    },
-  ])
+  // Mapear pedidos a formato compatible con la UI
+  const historicalOrders = pedidos.map(pedido => ({
+    id: pedido.whatsapp_order_id || pedido.id,
+    customer: pedido.cliente_nombre,
+    restaurant: pedido.nombre_sucursal,
+    time: pedido.estado,
+    items: pedido.total_items,
+    total: pedido.total,
+    status: pedido.estado === 'entregado' ? 'completed' : pedido.estado === 'cancelado' ? 'cancelled' : 'pending',
+    date: new Date(pedido.fecha_pedido).toLocaleDateString(),
+    itemsList: pedido.items || [],
+    subtotal: pedido.subtotal,
+    comments: pedido.notas
+  }))
 
   const handleOrderClick = (order: any) => {
     setSelectedOrder({
@@ -193,7 +143,19 @@ export default function HistorialPage() {
         </div>
 
         {/* Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+        {isLoading ? (
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+            {[1, 2, 3, 4].map((i) => (
+              <Card key={i} className="glass animate-pulse">
+                <CardContent className="pt-6">
+                  <div className="h-8 bg-gray-200 rounded mb-2"></div>
+                  <div className="h-6 bg-gray-100 rounded"></div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
           <Card className="glass hover:glass-strong transition-all duration-300 transform hover:scale-[1.02] cursor-pointer">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Total Pedidos</CardTitle>
@@ -240,6 +202,25 @@ export default function HistorialPage() {
             </CardContent>
           </Card>
         </div>
+        )}
+
+        {/* Error Message */}
+        {error && (
+          <Card className="glass-strong mb-8">
+            <CardContent className="pt-6">
+              <div className="text-center text-red-600">
+                <p>Error: {error}</p>
+                <Button 
+                  onClick={() => window.location.reload()} 
+                  variant="outline" 
+                  className="mt-2"
+                >
+                  Reintentar
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Orders List */}
         <Card className="glass-strong">
@@ -297,7 +278,12 @@ export default function HistorialPage() {
         </Card>
       </div>
 
-      <OrderDetailModal order={selectedOrder} isOpen={showOrderDetail} onClose={() => setShowOrderDetail(false)} />
+      {selectedOrder && (
+        <OrderDetailModal 
+          order={selectedOrder} 
+          onClose={() => setShowOrderDetail(false)} 
+        />
+      )}
     </div>
   )
 }

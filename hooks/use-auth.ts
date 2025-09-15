@@ -9,6 +9,7 @@ export function useAuth() {
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState<string | null>(null)
     const [user, setUser] = useState<User | null>(null)
+    const [profile, setProfile] = useState<any>(null)
     const router = useRouter()
 
     // Cargar el usuario al inicio
@@ -18,14 +19,42 @@ export function useAuth() {
         // Obtener el usuario actual
         const fetchUser = async () => {
             const { data } = await supabase.auth.getUser()
-            setUser(data.user)
+            const currentUser = data.user
+            setUser(currentUser)
+            
+            // Cargar perfil del usuario si existe
+            if (currentUser) {
+                const { data: userProfile } = await supabase
+                    .from('user_profiles')
+                    .select('*')
+                    .eq('id', currentUser.id)
+                    .single()
+                
+                setProfile(userProfile)
+            } else {
+                setProfile(null)
+            }
         }
         
         fetchUser()
         
         // Suscribirse a cambios de autenticación
-        const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-            setUser(session?.user || null)
+        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+            const currentUser = session?.user || null
+            setUser(currentUser)
+            
+            // Cargar perfil cuando cambia el usuario
+            if (currentUser) {
+                const { data: userProfile } = await supabase
+                    .from('user_profiles')
+                    .select('*')
+                    .eq('id', currentUser.id)
+                    .single()
+                
+                setProfile(userProfile)
+            } else {
+                setProfile(null)
+            }
         })
         
         return () => {
@@ -152,6 +181,7 @@ export function useAuth() {
 
     return {
         user,
+        profile,
         login, 
         register,
         loginWithGoogle,

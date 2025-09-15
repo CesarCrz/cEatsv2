@@ -31,45 +31,66 @@ import {
   ArrowLeft,
   BarChart3,
   Activity,
+  Loader2,
 } from "lucide-react"
 import Link from "next/link"
-
-const salesData = [
-  { name: "Lun", ventas: 4200, pedidos: 24 },
-  { name: "Mar", ventas: 3800, pedidos: 22 },
-  { name: "Mié", ventas: 5100, pedidos: 31 },
-  { name: "Jue", ventas: 4600, pedidos: 28 },
-  { name: "Vie", ventas: 6200, pedidos: 38 },
-  { name: "Sáb", ventas: 7800, pedidos: 45 },
-  { name: "Dom", ventas: 6900, pedidos: 41 },
-]
-
-const monthlyData = [
-  { month: "Ene", ventas: 125000, pedidos: 720 },
-  { month: "Feb", ventas: 132000, pedidos: 780 },
-  { month: "Mar", ventas: 148000, pedidos: 850 },
-  { month: "Abr", ventas: 156000, pedidos: 920 },
-  { month: "May", ventas: 162000, pedidos: 980 },
-  { month: "Jun", ventas: 178000, pedidos: 1050 },
-]
-
-const sucursalData = [
-  { name: "Centro", value: 35, ventas: 62000, color: "#3b82f6" },
-  { name: "Norte", value: 28, ventas: 49000, color: "#10b981" },
-  { name: "Sur", value: 22, ventas: 38000, color: "#f59e0b" },
-  { name: "Oeste", value: 15, ventas: 29000, color: "#ef4444" },
-]
-
-const topProducts = [
-  { name: "Sushi Mar y Tierra", ventas: 245, ingresos: 53550 },
-  { name: "Tacos de Pescado", ventas: 198, ingresos: 31680 },
-  { name: "Hamburguesa Clásica", ventas: 167, ingresos: 41750 },
-  { name: "Ensalada César", ventas: 134, ingresos: 24120 },
-  { name: "Combo Especial", ventas: 89, ingresos: 60520 },
-]
+import { useReportes } from "@/hooks/use-reportes"
+import { useAuth } from "@/hooks/use-auth"
 
 export default function ReportesPage() {
   const [timeRange, setTimeRange] = useState("7d")
+  const { reportes, isLoading, error } = useReportes()
+  const { profile } = useAuth()
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-background via-muted/30 to-background flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />
+          <p>Cargando reportes...</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-background via-muted/30 to-background flex items-center justify-center">
+        <Card className="w-96">
+          <CardContent className="pt-6">
+            <div className="text-center text-red-600">
+              <p>Error: {error}</p>
+              <Button 
+                onClick={() => window.location.reload()} 
+                variant="outline" 
+                className="mt-4"
+              >
+                Reintentar
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
+
+  if (!reportes) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-background via-muted/30 to-background flex items-center justify-center">
+        <Card className="w-96">
+          <CardContent className="pt-6">
+            <div className="text-center">
+              <BarChart3 className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+              <h3 className="text-lg font-medium mb-2">No hay datos disponibles</h3>
+              <p className="text-sm text-muted-foreground">
+                No se encontraron pedidos para generar reportes.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-muted/30 to-background">
@@ -123,7 +144,7 @@ export default function ReportesPage() {
               <DollarSign className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">$178,420</div>
+              <div className="text-2xl font-bold">${reportes.ingresosTotales.toLocaleString()}</div>
               <div className="flex items-center space-x-2 text-xs text-muted-foreground">
                 <TrendingUp className="w-3 h-3 text-green-600" />
                 <span className="text-green-600">+12.5%</span>
@@ -138,7 +159,7 @@ export default function ReportesPage() {
               <Package className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">1,247</div>
+              <div className="text-2xl font-bold">{reportes.totalPedidos.toLocaleString()}</div>
               <div className="flex items-center space-x-2 text-xs text-muted-foreground">
                 <TrendingUp className="w-3 h-3 text-green-600" />
                 <span className="text-green-600">+8.2%</span>
@@ -153,7 +174,7 @@ export default function ReportesPage() {
               <Clock className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">16 min</div>
+              <div className="text-2xl font-bold">{reportes.tiempoPromedio} min</div>
               <div className="flex items-center space-x-2 text-xs text-muted-foreground">
                 <TrendingDown className="w-3 h-3 text-green-600" />
                 <span className="text-green-600">-2 min</span>
@@ -168,7 +189,7 @@ export default function ReportesPage() {
               <Star className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">4.8</div>
+              <div className="text-2xl font-bold">{reportes.satisfaccion}</div>
               <div className="flex items-center space-x-2 text-xs text-muted-foreground">
                 <TrendingUp className="w-3 h-3 text-green-600" />
                 <span className="text-green-600">+0.3</span>
@@ -192,7 +213,7 @@ export default function ReportesPage() {
             <CardContent>
               <div className="h-[300px]">
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={salesData}>
+                  <BarChart data={reportes.ventasPorDia}>
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis dataKey="name" />
                     <YAxis />
@@ -216,7 +237,7 @@ export default function ReportesPage() {
             <CardContent>
               <div className="h-[300px]">
                 <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={monthlyData}>
+                  <LineChart data={reportes.tendenciaMensual}>
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis dataKey="month" />
                     <YAxis />
@@ -237,56 +258,58 @@ export default function ReportesPage() {
 
         {/* Additional Analytics */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Sucursales Performance */}
-          <Card className="glass-strong">
-            <CardHeader>
-              <CardTitle>Rendimiento por Sucursal</CardTitle>
-              <CardDescription>Distribución de ventas por ubicación</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="h-[250px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={sucursalData}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={60}
-                      outerRadius={100}
-                      paddingAngle={5}
-                      dataKey="value"
-                    >
-                      {sucursalData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.color} />
-                      ))}
-                    </Pie>
-                    <Tooltip />
-                  </PieChart>
-                </ResponsiveContainer>
-              </div>
-              <div className="mt-4 space-y-2">
-                {sucursalData.map((sucursal) => (
-                  <div key={sucursal.name} className="flex items-center justify-between">
-                    <div className="flex items-center space-x-2">
-                      <div className="w-3 h-3 rounded-full" style={{ backgroundColor: sucursal.color }}></div>
-                      <span className="text-sm font-medium">{sucursal.name}</span>
+          {/* Sucursales Performance - Solo para admin */}
+          {profile?.role === 'admin' && reportes.sucursalData.length > 0 && (
+            <Card className="glass-strong">
+              <CardHeader>
+                <CardTitle>Rendimiento por Sucursal</CardTitle>
+                <CardDescription>Distribución de ventas por ubicación</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="h-[250px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={reportes.sucursalData}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={60}
+                        outerRadius={100}
+                        paddingAngle={5}
+                        dataKey="value"
+                      >
+                        {reportes.sucursalData.map((entry: any, index: number) => (
+                          <Cell key={`cell-${index}`} fill={entry.color} />
+                        ))}
+                      </Pie>
+                      <Tooltip />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+                <div className="mt-4 space-y-2">
+                  {reportes.sucursalData.map((sucursal: any) => (
+                    <div key={sucursal.name} className="flex items-center justify-between">
+                      <div className="flex items-center space-x-2">
+                        <div className="w-3 h-3 rounded-full" style={{ backgroundColor: sucursal.color }}></div>
+                        <span className="text-sm font-medium">{sucursal.name}</span>
+                      </div>
+                      <div className="text-sm text-muted-foreground">${sucursal.ventas.toLocaleString()}</div>
                     </div>
-                    <div className="text-sm text-muted-foreground">${sucursal.ventas.toLocaleString()}</div>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
           {/* Top Products */}
-          <Card className="glass-strong lg:col-span-2">
+          <Card className={`glass-strong ${profile?.role === 'admin' && reportes.sucursalData.length > 0 ? 'lg:col-span-2' : 'lg:col-span-3'}`}>
             <CardHeader>
               <CardTitle>Productos Más Vendidos</CardTitle>
               <CardDescription>Top 5 productos por volumen de ventas</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {topProducts.map((product, index) => (
+                {reportes.topProducts.map((product: any, index: number) => (
                   <div key={product.name} className="flex items-center justify-between p-4 glass rounded-lg">
                     <div className="flex items-center space-x-4">
                       <div className="w-8 h-8 bg-gradient-to-br from-primary/20 to-secondary/20 rounded-full flex items-center justify-center">
@@ -313,11 +336,11 @@ export default function ReportesPage() {
           <Card className="glass hover:glass-strong transition-all duration-300 cursor-pointer">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Pedidos Cancelados</CardTitle>
-              <Badge variant="destructive">3.2%</Badge>
+              <Badge variant="destructive">{reportes.totalPedidos > 0 ? ((reportes.pedidosCancelados / reportes.totalPedidos) * 100).toFixed(1) : 0}%</Badge>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">42</div>
-              <p className="text-xs text-muted-foreground">de 1,247 pedidos totales</p>
+              <div className="text-2xl font-bold">{reportes.pedidosCancelados}</div>
+              <p className="text-xs text-muted-foreground">de {reportes.totalPedidos} pedidos totales</p>
             </CardContent>
           </Card>
 
@@ -327,22 +350,22 @@ export default function ReportesPage() {
               <DollarSign className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">$143</div>
+              <div className="text-2xl font-bold">${reportes.ticketPromedio}</div>
               <p className="text-xs text-muted-foreground">
-                <span className="text-green-600">+$12</span> vs mes anterior
+                <span className="text-green-600">promedio por pedido</span>
               </p>
             </CardContent>
           </Card>
 
           <Card className="glass hover:glass-strong transition-all duration-300 cursor-pointer">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Clientes Activos</CardTitle>
+              <CardTitle className="text-sm font-medium">Clientes Únicos</CardTitle>
               <Users className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">892</div>
+              <div className="text-2xl font-bold">{reportes.clientesActivos}</div>
               <p className="text-xs text-muted-foreground">
-                <span className="text-green-600">+67</span> nuevos este mes
+                clientes diferentes han pedido
               </p>
             </CardContent>
           </Card>

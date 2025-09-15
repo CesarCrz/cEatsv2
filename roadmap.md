@@ -2,6 +2,7 @@
 
 ## ✅ Completado hasta ahora
 
+### **🏗️ Infraestructura Base**
 - [x] Configuración inicial de Next.js + Supabase
 - [x] Esquema de base de datos híbrido (auth.users + tablas personalizadas)
 - [x] Autenticación con email/password
@@ -9,45 +10,173 @@
 - [x] Hook useAuth centralizado
 - [x] Página de login funcional
 - [x] Endpoints API básicos (/login, /register, /callback)
-- [x] **NUEVO:** Sistema completo de verificación por email con códigos 2FA
-- [x] **NUEVO:** Base de datos de pedidos completa (tablas `pedidos` y `pedido_items`)
-- [x] **NUEVO:** Vista `pedidos_completos` optimizada para queries
-- [x] **NUEVO:** Tipos TypeScript centralizados (`@/types/pedidos`)
-- [x] **NUEVO:** Dashboard de restaurante completamente funcional
-- [x] **NUEVO:** Dashboard de sucursal completamente funcional  
-- [x] **NUEVO:** Modal de detalles de pedido con toda la funcionalidad
-- [x] **NUEVO:** Sistema de estados de pedidos (pendiente → confirmado → preparando → listo → entregado)
-- [x] **NUEVO:** Analytics en tiempo real (pedidos hoy, ingresos, pendientes, etc.)
-- [x] **NUEVO:** Quick actions para cambio de estados de pedidos
-- [x] **NUEVO:** Filtros por estado en dashboard de sucursal
-- [x] **NUEVO:** Gestión completa de items de pedidos con categorías y notas
-- [x] **NUEVO:** Soporte completo para tipos de entrega (domicilio, recoger, mesa)
-- [x] **NUEVO:** Integración con WhatsApp Business (estructura preparada)
-- [x] **NUEVO:** Sistema de verificación de acceso por restaurante/sucursal
-- [x] **NUEVO:** Hook `usePedidosRealtime` completo con audio, notificaciones y tiempo real
-- [x] **NUEVO:** Sistema de audio inteligente (loop hasta aceptar pedido)
-- [x] **NUEVO:** Notificaciones del browser para nuevos pedidos
-- [x] **NUEVO:** Suscripciones Realtime por sucursal con filtros automáticos
-- [x] **NUEVO:** Indicadores visuales de conexión en tiempo real
-- [x] **NUEVO:** Contador de pedidos nuevos con badges interactivos
-- [x] **NUEVO:** Integración completa del hook en ambos dashboards
-- [x] **NUEVO:** Control de audio (pausa/reanuda) conectado con OrderDetailModal
+
+### **🔐 Sistema de Verificación y Seguridad**
+- [x] Sistema completo de verificación por email con códigos 2FA
+- [x] **NUEVO:** Control de acceso por roles (admin/sucursal)
+- [x] **NUEVO:** Protección de rutas con componente ProtectedRoute
+- [x] **NUEVO:** Hook usePermissions para verificación de permisos
+
+### **📊 Base de Datos y Pedidos**
+- [x] Base de datos de pedidos completa (tablas `pedidos` y `pedido_items`)
+- [x] Vista `pedidos_completos` optimizada para queries
+- [x] Tipos TypeScript centralizados (`@/types/pedidos`)
+- [x] **NUEVO:** Tabla `invitaciones_sucursales` para sistema de invitaciones
+
+### **🎛️ Dashboards Funcionales**
+- [x] Dashboard de restaurante completamente funcional
+- [x] Dashboard de sucursal completamente funcional  
+- [x] Modal de detalles de pedido con toda la funcionalidad
+- [x] Sistema de estados de pedidos (pendiente → confirmado → preparando → listo → entregado)
+- [x] Analytics en tiempo real (pedidos hoy, ingresos, pendientes, etc.)
+- [x] Quick actions para cambio de estados de pedidos
+- [x] Filtros por estado en dashboard de sucursal
+- [x] **NUEVO:** Sidebars adaptativos por rol (AdminSidebar/SucursalSidebar)
+
+### **📱 Sistema de Tiempo Real**
+- [x] Hook `usePedidosRealtime` completo con audio, notificaciones y tiempo real
+- [x] Sistema de audio inteligente (loop hasta aceptar pedido)
+- [x] Notificaciones del browser para nuevos pedidos
+- [x] Suscripciones Realtime por sucursal con filtros automáticos
+- [x] Indicadores visuales de conexión en tiempo real
+- [x] Contador de pedidos nuevos con badges interactivos
+- [x] Control de audio (pausa/reanuda) conectado con OrderDetailModal
+
+### **📧 Sistema de Invitaciones Profesional**
 - [x] **NUEVO:** Sistema de emails configurado (`lib/email`)
-- [x] **NUEVO:** Endpoint base para crear sucursales (`/api/create/sucursales`)
-- [x] **NUEVO:** Endpoint para validar códigos (`/api/auth/verify-code`)
+- [x] **NUEVO:** Plantilla de email profesional con branding consistente
+- [x] **NUEVO:** Endpoint `/api/invitar-sucursal` con tokens únicos
+- [x] **NUEVO:** Página de aceptación `/aceptar-invitacion/[token]`
+- [x] **NUEVO:** Modal de invitación integrado en página de sucursales
+- [x] **NUEVO:** Validación de tokens y creación automática de cuentas
+
+### **📄 Páginas Adaptadas por Rol**
+- [x] **NUEVO:** Página de historial con datos reales (hook usePedidos)
+- [x] **NUEVO:** Página de reportes con métricas dinámicas (hook useReportes)
+- [x] **NUEVO:** Página de configuración con información personal y roles
+- [x] **NUEVO:** Filtrado automático: Admin ve todo, Sucursal solo sus datos
+- [x] **NUEVO:** Componente UserAvatar con foto de Google/iniciales
+
+### **🔧 Gestión y Administración**
+- [x] Gestión completa de items de pedidos con categorías y notas
+- [x] Soporte completo para tipos de entrega (domicilio, recoger, mesa)
+- [x] Integración con WhatsApp Business (estructura preparada)
+- [x] Sistema de verificación de acceso por restaurante/sucursal
+- [x] **NUEVO:** Páginas /sucursales y /usuarios protegidas solo para admin
 
 ## 🚧 Próximos Pasos Inmediatos
 
 ### 🎯 **PRIORIDADES CRÍTICAS ACTUALES:**
 
-### A. **Sistema de Invitaciones de Sucursales con Links Únicos**
-**Prioridad: CRÍTICA** - **NUEVO FLUJO MEJORADO**
+### A. **💳 Sistema de Membresías y Pagos con Stripe**
+**Prioridad: CRÍTICA** - **SIGUIENTE IMPLEMENTACIÓN**
 
-#### A.1. Base de Datos para Invitaciones
-- [ ] Crear tabla `invitaciones_sucursales` con campos:
-  - `id` (UUID primary key)
-  - `restaurante_id` (FK a restaurantes)
-  - `email_sucursal` (email de la nueva sucursal)
+#### A.1. Configuración de Stripe
+- [ ] Setup de cuenta Stripe y configuración de API keys
+- [ ] Crear productos y precios en Stripe Dashboard
+- [ ] Configurar webhooks para eventos de pago
+- [ ] Instalar y configurar Stripe SDK
+
+#### A.2. Planes de Membresía
+- [ ] **Plan Básico**: 1-3 sucursales, 500 pedidos/mes
+- [ ] **Plan Pro**: 5-10 sucursales, 2000 pedidos/mes  
+- [ ] **Plan Enterprise**: Ilimitado + funciones premium
+- [ ] Sistema de límites por plan (sucursales, pedidos)
+
+#### A.3. Integración de Pagos
+- [ ] Checkout Sessions para suscripciones
+- [ ] Portal del cliente para gestión de suscripciones
+- [ ] Dashboard de facturación para admin
+- [ ] Sistema de comisiones fijas por pedido
+
+#### A.4. Control de Límites
+- [ ] Middleware para verificar límites de plan
+- [ ] Bloqueo de funciones cuando se exceden límites
+- [ ] Notificaciones de límites próximos a vencerse
+- [ ] Upgrade automático sugerido
+
+### B. **⚙️ Optimización de Configuraciones**
+**Prioridad: MEDIA** - **REFINAMIENTO**
+
+#### B.1. Simplificar Configuraciones Admin
+- [ ] **MANTENER**: Información personal, notificaciones básicas, cerrar sesión
+- [ ] **ELIMINAR**: Auto-aceptar pedidos, máx pedidos/hora, cambio contraseñas
+- [ ] **AGREGAR**: Información del restaurante, estado operativo por sucursal
+
+#### B.2. Configuraciones Sucursal
+- [ ] Estado operativo (abierto/cerrado temporal)
+- [ ] Cambio de contraseña propia
+- [ ] Información del plan actual y límites
+- [ ] Actualizar información de contacto
+
+#### B.3. Funcionalidades Reales
+- [ ] API para cambio de contraseñas individuales
+- [ ] Sistema de notificaciones real (push/email)
+- [ ] Filtros de fecha funcionales en reportes
+- [ ] Exportación de datos (CSV/PDF)
+
+### C. **🔧 Mejoras Técnicas Pendientes**
+**Prioridad: BAJA** - **OPTIMIZACIÓN**
+
+#### C.1. Sistema de Archivos
+- [ ] Upload y gestión de logos de restaurante
+- [ ] Fotos de perfil personalizadas (además de Google)
+- [ ] Almacenamiento optimizado en Supabase Storage
+
+#### C.2. Notificaciones Avanzadas
+- [ ] Push notifications móviles
+- [ ] Integración con sistemas de SMS
+- [ ] Notificaciones por email automáticas
+
+#### C.3. Analytics Avanzados
+- [ ] Gráficos con datos reales de fechas específicas
+- [ ] Comparativas mensuales reales
+- [ ] Exportación de reportes programados
+
+---
+
+## 📋 **BACKLOG DE FUNCIONALIDADES**
+
+### **🏪 Gestión de Restaurantes**
+- [ ] Configuración de horarios por sucursal
+- [ ] Gestión de menús y productos
+- [ ] Sistema de inventario básico
+- [ ] Configuración de zonas de entrega
+
+### **📱 Integración WhatsApp Avanzada**
+- [ ] Bot automático de pedidos
+- [ ] Reconocimiento de comandos por voz
+- [ ] Integración con catálogos de WhatsApp Business
+- [ ] Respuestas automáticas personalizadas
+
+### **🎨 Experiencia de Usuario**
+- [ ] Tema oscuro/claro
+- [ ] Personalización de colores por restaurante
+- [ ] Dashboard widgets configurables
+- [ ] Atajos de teclado para operaciones comunes
+
+### **📊 Business Intelligence**
+- [ ] Predicción de demanda
+- [ ] Análisis de patrones de pedidos
+- [ ] Recomendaciones automáticas
+- [ ] Integración con Google Analytics
+
+---
+
+## 🎯 **PRÓXIMO SPRINT: STRIPE & MEMBRESÍAS**
+
+### **🚀 Objetivos del Sprint:**
+1. **Setup completo de Stripe** con productos y precios
+2. **Checkout flow** para suscripciones de planes
+3. **Sistema de límites** basado en membresía actual
+4. **Portal de gestión** de suscripciones
+
+### **📅 Estimación: 2-3 semanas**
+
+### **🔗 Dependencias:**
+- Cuenta Stripe configurada
+- Decisión final sobre precios de planes
+- Definición de comisiones fijas por pedido
   - `nombre_sucursal` (nombre de la sucursal a crear)
   - `direccion` (dirección de la sucursal)
   - `telefono` (teléfono de contacto)
@@ -258,7 +387,50 @@
 - [x] Auto-refresh cuando llegan pedidos nuevos
 - [x] Notificaciones visuales para nuevos pedidos
 - [x] Actualización automática de estados en tiempo real
-- [x] Sistema de audio con loop inteligente
+---
+
+## 📝 **ESTADO ACTUAL DEL PROYECTO**
+
+### **🎯 SISTEMA COMPLETAMENTE FUNCIONAL**
+El sistema **cEats v2** está operativo al 100% con:
+- ✅ **Autenticación completa** (email/password + Google OAuth)
+- ✅ **Dashboards diferenciados** por rol con tiempo real
+- ✅ **Sistema de invitaciones profesional** con emails branded
+- ✅ **Control de acceso** granular por permisos
+- ✅ **Páginas adaptadas** por rol (historial, reportes, configuración)
+- ✅ **Audio y notificaciones** en tiempo real
+
+### **🚀 PRÓXIMO HITO CRÍTICO: MONETIZACIÓN**
+La siguiente fase se enfoca en **generar ingresos** y **escalar el negocio**:
+
+1. **💳 Sistema de Membresías** con Stripe
+2. **📊 Límites por plan** de suscripción  
+3. **💰 Comisiones fijas** por pedido
+4. **📈 Dashboard de facturación**
+
+### **⚡ FUNCIONALIDADES EN STANDBY**
+Las siguientes funcionalidades están **preparadas técnicamente** pero en pausa hasta completar monetización:
+- ⏸️ Refinamiento de configuraciones
+- ⏸️ Sistema de archivos/uploads
+- ⏸️ Notificaciones push avanzadas
+- ⏸️ Analytics con fechas específicas
+
+---
+
+## 🔄 **HISTORIAL DE CAMBIOS RECIENTES**
+
+### **Diciembre 2024 - Enero 2025:**
+- ✅ Sistema de invitaciones completamente implementado
+- ✅ Control de acceso por roles finalizado
+- ✅ Páginas historial/reportes/configuración con datos reales
+- ✅ Hooks personalizados (usePedidos, useReportes) funcionales
+- ✅ Componente UserAvatar con integración Google
+
+### **Próximos 30 días:**
+- 🎯 **Setup completo de Stripe** (productos, precios, webhooks)
+- 🎯 **Planes de membresía** definidos y funcionales
+- 🎯 **Sistema de límites** por suscripción
+- 🎯 **Portal de gestión** de suscripciones
 - [x] Notificaciones del browser
 - [x] Indicadores de conexión en tiempo real
 - [x] Filtros automáticos por sucursal/restaurante

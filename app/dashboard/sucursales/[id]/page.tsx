@@ -76,6 +76,63 @@ export default function SucursalDashboard({ params }: SucursalDashboardProps) {
     const [refreshing, setRefreshing] = useState(false)
     const [showOrderModal, setShowOrderModal] = useState(false)
 
+    // Componente Sidebar para Sucursal
+    const SucursalSidebar = () => {
+        const menuItems = [
+            { name: 'Dashboard', href: `/dashboard/sucursales/${sucursalId}`, icon: Building, active: true },
+            { name: 'Historial', href: '/historial', icon: History },
+            { name: 'Reportes', href: '/reportes', icon: BarChart },
+            { name: 'Configuración', href: '/configuracion', icon: Settings }
+        ]
+
+        return (
+            <div className="w-64 bg-white dark:bg-gray-800 shadow-lg">
+                <div className="p-6">
+                    <div className="flex items-center">
+                        <Building className="h-8 w-8 text-orange-500" />
+                        <div className="ml-2">
+                            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+                                {sucursal?.nombre_sucursal || 'Sucursal'}
+                            </h2>
+                            <p className="text-sm text-gray-500">Panel Sucursal</p>
+                        </div>
+                    </div>
+                </div>
+                <nav className="mt-6">
+                    {menuItems.map((item) => (
+                        <button
+                            key={item.name}
+                            onClick={() => router.push(item.href)}
+                            className={`w-full flex items-center px-6 py-3 text-left hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors ${
+                                item.active 
+                                    ? 'bg-orange-50 border-r-2 border-orange-500 text-orange-600' 
+                                    : 'text-gray-700 dark:text-gray-300'
+                            }`}
+                        >
+                            <item.icon className="mr-3 h-5 w-5" />
+                            {item.name}
+                        </button>
+                    ))}
+                </nav>
+                
+                {/* Indicador de conexión en sidebar */}
+                <div className="absolute bottom-6 left-6 right-6">
+                    <div className="flex items-center space-x-2 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                        <div className={`h-2 w-2 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'}`} />
+                        <span className="text-xs text-gray-600 dark:text-gray-400">
+                            {isConnected ? 'En línea' : 'Desconectado'}
+                        </span>
+                        {newOrdersCount > 0 && (
+                            <Badge className="bg-red-500 text-white text-xs">
+                                {newOrdersCount}
+                            </Badge>
+                        )}
+                    </div>
+                </div>
+            </div>
+        )
+    }
+
     // Hook de tiempo real
     const {
         pedidos,
@@ -321,74 +378,74 @@ export default function SucursalDashboard({ params }: SucursalDashboardProps) {
     }
 
     return (
-        <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-            {/* Header */}
-            <div className="bg-white dark:bg-gray-800 shadow">
-                <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-                    <div className="flex h-16 justify-between items-center">
-                        <div className="flex items-center">
-                            <Building className="h-8 w-8 text-orange-500" />
-                            <div className="ml-2">
-                                <h1 className="text-xl font-semibold text-gray-900 dark:text-white">
-                                    {sucursal.nombre_sucursal}
-                                </h1>
-                                <p className="text-sm text-gray-500 flex items-center">
-                                    <MapPin className="mr-1 h-3 w-3" />
-                                    {sucursal.direccion}
-                                </p>
+        <div className="flex min-h-screen bg-gray-50 dark:bg-gray-900">
+            <SucursalSidebar />
+            
+            <div className="flex-1">
+                {/* Header */}
+                <div className="bg-white dark:bg-gray-800 shadow">
+                    <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+                        <div className="flex h-16 justify-between items-center">
+                            <div className="flex items-center">
+                                <div className="ml-2">
+                                    <h1 className="text-xl font-semibold text-gray-900 dark:text-white">
+                                        {sucursal.nombre_sucursal}
+                                    </h1>
+                                    <p className="text-sm text-gray-500 flex items-center">
+                                        <MapPin className="mr-1 h-3 w-3" />
+                                        {sucursal.direccion}
+                                    </p>
+                                </div>
                             </div>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={refrescarDatos}
-                                disabled={refreshing}
-                            >
-                                <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
-                            </Button>
-                            {/* Indicador de conexión en tiempo real */}
                             <div className="flex items-center space-x-2">
-                                <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'}`} />
-                                <span className="text-sm text-gray-500">
-                                    {isConnected ? 'Conectado' : 'Desconectado'}
-                                </span>
-                                {newOrdersCount > 0 && (
-                                    <Badge 
-                                        className="bg-red-500 text-white cursor-pointer hover:bg-red-600" 
-                                        onClick={() => markOrdersAsSeen()}
-                                    >
-                                        {newOrdersCount}
-                                    </Badge>
-                                )}
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={refrescarDatos}
+                                    disabled={refreshing}
+                                >
+                                    <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
+                                </Button>
+                                {/* Indicador de conexión en tiempo real */}
+                                <div className="flex items-center space-x-2">
+                                    <span className="text-sm text-gray-500">
+                                        {newOrdersCount > 0 && (
+                                            <Badge 
+                                                className="bg-red-500 text-white cursor-pointer hover:bg-red-600" 
+                                                onClick={() => markOrdersAsSeen()}
+                                            >
+                                                {newOrdersCount}
+                                            </Badge>
+                                        )}
+                                    </span>
+                                </div>
+                                <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                        <Button variant="ghost" size="sm">
+                                            <Settings className="h-4 w-4" />
+                                        </Button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="end">
+                                        <DropdownMenuItem onClick={() => router.push('/configuracion')}>
+                                            <Settings className="mr-2 h-4 w-4" />
+                                            Configuración
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem onClick={() => router.push('/dashboard')}>
+                                            <Building className="mr-2 h-4 w-4" />
+                                            Dashboard Principal
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem onClick={handleLogout}>
+                                            <LogOut className="mr-2 h-4 w-4" />
+                                            Cerrar Sesión
+                                        </DropdownMenuItem>
+                                    </DropdownMenuContent>
+                                </DropdownMenu>
                             </div>
-                            <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                    <Button variant="ghost" size="sm">
-                                        <Settings className="h-4 w-4" />
-                                    </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end">
-                                    <DropdownMenuItem onClick={() => router.push('/configuracion')}>
-                                        <Settings className="mr-2 h-4 w-4" />
-                                        Configuración
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem onClick={() => router.push('/dashboard')}>
-                                        <Building className="mr-2 h-4 w-4" />
-                                        Dashboard Principal
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem onClick={handleLogout}>
-                                        <LogOut className="mr-2 h-4 w-4" />
-                                        Cerrar Sesión
-                                    </DropdownMenuItem>
-                                </DropdownMenuContent>
-                            </DropdownMenu>
                         </div>
                     </div>
                 </div>
-            </div>
 
-            <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-8">
+                <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-8">
                 {/* Analytics Cards */}
                 <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-5 mb-8">
                     <Card>
@@ -641,8 +698,8 @@ export default function SucursalDashboard({ params }: SucursalDashboardProps) {
                         </Card>
                     </TabsContent>
                 </Tabs>
-            </div>
-
+                </div>
+            
             {/* Modals */}
             {selectedOrder && (
                 <OrderDetailModal
@@ -675,6 +732,7 @@ export default function SucursalDashboard({ params }: SucursalDashboardProps) {
                     }}
                 />
             )}
+            </div>
         </div>
     )
 }

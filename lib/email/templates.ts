@@ -1,6 +1,6 @@
 import { EmailTemplate } from "./types";
 
-//Template para código de verficiación de login
+
 export function getLoginVerificationTemplate(codigo: string, nombre: string): EmailTemplate {
     return {
         subject: 'cEats v2 - Código de Verificación',
@@ -46,7 +46,6 @@ export function getLoginVerificationTemplate(codigo: string, nombre: string): Em
     }
 }
 
-// En lib/email/templates.ts - actualizar la función getNewBrachTemplate
 export function getNewBrachTemplate(
     nombreSucursal: string,
     codigoTemporal: string,
@@ -101,4 +100,78 @@ export function getNewBrachTemplate(
       </div>
         `
     }
+}
+
+export function getInvitationTemplate(
+  nombreSucursal: string,
+  linkInvitacion: string,
+  nombreRestaurante: string
+): EmailTemplate {
+  return {
+    subject: `Invitación para unirse a ${nombreRestaurante}`,
+    html: `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+      <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 20px; text-align: center; border-radius: 10px 10px 0 0;">
+        <h1 style="color: white; margin: 0;">🍽️ cEats v2</h1>
+        <p style="color: white; margin: 5px 0 0 0;">Sistema de Gestión de Restaurantes</p>
+      </div>
+      
+      <div style="padding: 30px; background: #f9f9f9; border-radius: 0 0 10px 10px;">
+        <h2 style="color: #333; text-align: center;">🎉 ¡Has sido invitado!</h2>
+        
+        <p style="color: #666; line-height: 1.6;">
+          ¡Hola!<br><br>
+          <strong>${nombreRestaurante}</strong> te ha invitado a unirte a su equipo como 
+          administrador de la sucursal <strong>"${nombreSucursal}"</strong>.
+        </p>
+        
+        <div style="background: #fff; border: 2px solid #4CAF50; border-radius: 8px; padding: 20px; margin: 20px 0;">
+          <h3 style="color: #333; margin: 0 0 15px 0; text-align: center;">🏪 Detalles de la Invitación</h3>
+          <p style="color: #666; margin: 5px 0;"><strong>🏢 Restaurante:</strong> ${nombreRestaurante}</p>
+          <p style="color: #666; margin: 5px 0;"><strong>📍 Sucursal:</strong> ${nombreSucursal}</p>
+          <p style="color: #666; margin: 5px 0;"><strong>👤 Rol:</strong> Administrador de Sucursal</p>
+        </div>
+        
+        <div style="background: #e3f2fd; border: 2px solid #2196F3; border-radius: 8px; padding: 20px; margin: 20px 0;">
+          <h3 style="color: #1976d2; margin: 0 0 10px 0; text-align: center;">🚀 ¿Qué podrás hacer?</h3>
+          <ul style="color: #666; margin: 10px 0; padding-left: 20px;">
+            <li style="margin: 8px 0;">📊 Gestionar pedidos en tiempo real</li>
+            <li style="margin: 8px 0;">📈 Ver reportes y analytics de tu sucursal</li>
+            <li style="margin: 8px 0;">⚙️ Configurar tu sucursal</li>
+            <li style="margin: 8px 0;">🔔 Recibir notificaciones de nuevos pedidos</li>
+          </ul>
+        </div>
+        
+        <div style="text-align: center; margin: 30px 0;">
+          <a href="${linkInvitacion}" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 15px 40px; text-decoration: none; border-radius: 8px; font-weight: bold; display: inline-block; font-size: 16px; box-shadow: 0 4px 8px rgba(102, 126, 234, 0.3); transition: all 0.3s ease;">
+            🎯 Aceptar Invitación
+          </a>
+        </div>
+        
+        <div style="background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 8px; padding: 15px; margin: 20px 0;">
+          <p style="color: #856404; margin: 0; font-size: 14px;">
+            <strong>⏰ Importante:</strong> Esta invitación expirará en <strong>7 días</strong>. 
+            Al aceptar, podrás crear tu propia contraseña y acceder inmediatamente al sistema.
+          </p>
+        </div>
+        
+        <div style="background: #f0f0f0; border-left: 4px solid #ff9800; padding: 15px; margin: 20px 0;">
+          <p style="color: #666; margin: 0; font-size: 14px;">
+            Si no esperabas esta invitación o crees que es un error, puedes ignorar este email. 
+            No se creará ninguna cuenta hasta que aceptes la invitación.
+          </p>
+        </div>
+        
+        <div style="text-align: center; margin-top: 40px; padding-top: 20px; border-top: 1px solid #ddd;">
+          <p style="color: #999; font-size: 12px; margin: 5px 0;">
+            ¿Necesitas ayuda? Contacta al administrador de ${nombreRestaurante}
+          </p>
+          <p style="color: #999; font-size: 12px; margin: 5px 0;">
+            © 2024 cEats v2. Todos los derechos reservados.
+          </p>
+        </div>
+      </div>
+    </div>
+    `
+  }
 }

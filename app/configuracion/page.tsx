@@ -9,13 +9,17 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch"
 import { Separator } from "@/components/ui/separator"
 import { Badge } from "@/components/ui/badge"
-import { Settings, ArrowLeft, Key, Bell, Shield, Building, Save, Eye, EyeOff, Check, AlertTriangle } from "lucide-react"
+import { Settings, ArrowLeft, Key, Bell, Shield, Building, Save, Eye, EyeOff, Check, AlertTriangle, User, LogOut } from "lucide-react"
 import Link from "next/link"
+import { useAuth } from "@/hooks/use-auth"
+import { createClient } from "@/lib/supabase/client"
 
 export default function ConfiguracionPage() {
+  const { profile, logout } = useAuth()
   const [selectedSucursal, setSelectedSucursal] = useState("")
   const [newPassword, setNewPassword] = useState("")
   const [showPassword, setShowPassword] = useState(false)
+  const [isLoading, setIsLoading] = useState(false)
   const [notifications, setNotifications] = useState({
     newOrders: true,
     orderReady: true,
@@ -30,32 +34,69 @@ export default function ConfiguracionPage() {
     maintenanceMode: false,
   })
 
-  const sucursales = ["Sucursal Centro", "Sucursal Norte", "Sucursal Sur", "Sucursal Oeste"]
+  const supabase = createClient()
+  const sucursales = ["Sucursal Centro", "Sucursal Norte", "Sucursal Sur", "Sucursal Oeste"] // TODO: Cargar desde BD
 
   const togglePasswordVisibility = () => {
     setShowPassword(!showPassword)
   }
 
-  const handleSavePassword = () => {
+  const handleSavePassword = async () => {
     if (!selectedSucursal || !newPassword) {
-      console.log("Please select a sucursal and enter a password")
+      alert("Por favor selecciona una sucursal e ingresa una contraseña")
       return
     }
-    console.log("Saving password for:", selectedSucursal, "Password:", newPassword)
-    // Reset form after saving
-    setSelectedSucursal("")
-    setNewPassword("")
-    setShowPassword(false)
+    
+    setIsLoading(true)
+    try {
+      // TODO: Implementar API para cambiar contraseña de sucursal
+      console.log("Saving password for:", selectedSucursal, "Password:", newPassword)
+      
+      // Reset form after saving
+      setSelectedSucursal("")
+      setNewPassword("")
+      setShowPassword(false)
+      alert("Contraseña actualizada exitosamente")
+    } catch (error) {
+      console.error("Error updating password:", error)
+      alert("Error al actualizar la contraseña")
+    } finally {
+      setIsLoading(false)
+    }
   }
 
-  const handleSaveNotifications = () => {
-    console.log("Saving notifications:", notifications)
-    // Here you would typically make an API call to save the notification settings
+  const handleSaveNotifications = async () => {
+    setIsLoading(true)
+    try {
+      // TODO: Guardar en BD
+      console.log("Saving notifications:", notifications)
+      alert("Notificaciones guardadas exitosamente")
+    } catch (error) {
+      console.error("Error saving notifications:", error)
+      alert("Error al guardar notificaciones")
+    } finally {
+      setIsLoading(false)
+    }
   }
 
-  const handleSaveGeneralSettings = () => {
-    console.log("Saving general settings:", generalSettings)
-    // Here you would typically make an API call to save the general settings
+  const handleSaveGeneralSettings = async () => {
+    setIsLoading(true)
+    try {
+      // TODO: Guardar en BD
+      console.log("Saving general settings:", generalSettings)
+      alert("Configuración guardada exitosamente")
+    } catch (error) {
+      console.error("Error saving settings:", error)
+      alert("Error al guardar configuración")
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleSignOut = async () => {
+    if (confirm("¿Estás seguro de que deseas cerrar sesión?")) {
+      await logout()
+    }
   }
 
   return (
@@ -86,7 +127,72 @@ export default function ConfiguracionPage() {
 
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="space-y-8">
-          {/* Contraseñas de Sucursales */}
+          {/* Información Personal */}
+          <Card className="glass-strong">
+            <CardHeader>
+              <div className="flex items-center space-x-3">
+                <div className="w-8 h-8 bg-primary/10 rounded-lg flex items-center justify-center">
+                  <User className="w-4 h-4 text-primary" />
+                </div>
+                <div>
+                  <CardTitle>Información Personal</CardTitle>
+                  <CardDescription>
+                    Detalles de tu cuenta y perfil en el sistema
+                  </CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium text-muted-foreground">Nombre</Label>
+                  <p className="text-base font-medium">{profile?.nombre || 'No disponible'}</p>
+                </div>
+                
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium text-muted-foreground">Email</Label>
+                  <p className="text-base">{profile?.email || 'No disponible'}</p>
+                </div>
+                
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium text-muted-foreground">Rol</Label>
+                  <Badge variant="outline" className="w-fit">
+                    {profile?.role === 'admin' ? 'Administrador' : 'Sucursal'}
+                  </Badge>
+                </div>
+                
+                {profile?.role === 'sucursal' && (
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium text-muted-foreground">Sucursal</Label>
+                    <p className="text-base">{profile?.sucursal_id || 'No asignada'}</p>
+                  </div>
+                )}
+              </div>
+              
+              <Separator />
+              
+              <div className="flex justify-between items-center">
+                <div>
+                  <h4 className="font-medium">Cerrar Sesión</h4>
+                  <p className="text-sm text-muted-foreground">
+                    Salir de tu cuenta actual de forma segura
+                  </p>
+                </div>
+                <Button 
+                  variant="outline" 
+                  onClick={handleSignOut}
+                  className="border-red-200 text-red-600 hover:bg-red-50"
+                  disabled={isLoading}
+                >
+                  <LogOut className="w-4 h-4 mr-2" />
+                  Cerrar Sesión
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Contraseñas de Sucursales - Solo para Admin */}
+          {profile?.role === 'admin' && (
           <Card className="glass-strong">
             <CardHeader>
               <div className="flex items-center space-x-3">
@@ -155,14 +261,15 @@ export default function ConfiguracionPage() {
                 <Button
                   onClick={handleSavePassword}
                   className="cursor-pointer"
-                  disabled={!selectedSucursal || !newPassword}
+                  disabled={!selectedSucursal || !newPassword || isLoading}
                 >
                   <Save className="w-4 h-4 mr-2" />
-                  Guardar Contraseña
+                  {isLoading ? 'Guardando...' : 'Guardar Contraseña'}
                 </Button>
               </div>
             </CardContent>
           </Card>
+          )}
 
           {/* Notificaciones */}
           <Card className="glass-strong">
@@ -244,15 +351,16 @@ export default function ConfiguracionPage() {
               </div>
 
               <div className="flex justify-end pt-4">
-                <Button onClick={handleSaveNotifications} className="cursor-pointer">
+                <Button onClick={handleSaveNotifications} className="cursor-pointer" disabled={isLoading}>
                   <Save className="w-4 h-4 mr-2" />
-                  Guardar Notificaciones
+                  {isLoading ? 'Guardando...' : 'Guardar Notificaciones'}
                 </Button>
               </div>
             </CardContent>
           </Card>
 
-          {/* Configuración General */}
+          {/* Configuración General - Solo para Admin */}
+          {profile?.role === 'admin' && (
           <Card className="glass-strong">
             <CardHeader>
               <div className="flex items-center space-x-3">
@@ -338,13 +446,14 @@ export default function ConfiguracionPage() {
               </div>
 
               <div className="flex justify-end pt-4">
-                <Button onClick={handleSaveGeneralSettings} className="cursor-pointer">
+                <Button onClick={handleSaveGeneralSettings} className="cursor-pointer" disabled={isLoading}>
                   <Save className="w-4 h-4 mr-2" />
-                  Guardar Configuración
+                  {isLoading ? 'Guardando...' : 'Guardar Configuración'}
                 </Button>
               </div>
             </CardContent>
           </Card>
+          )}
 
           {/* Sistema Info */}
           <Card className="glass-strong">
