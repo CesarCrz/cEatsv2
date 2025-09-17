@@ -5,11 +5,16 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
+import { Progress } from "@/components/ui/progress"
+import { Alert, AlertDescription } from "@/components/ui/alert"
 import { SucursalFormModal } from "@/components/sucursal-form-modal"
 import { InvitationModal } from "@/components/invitation-modal"
 import { DeleteConfirmationModal } from "@/components/delete-confirmation-modal"
+import { SubscriptionLimitsIndicator } from "@/components/subscription-limits-indicator"
 import { Plus, Search, MapPin, Phone, Users, Edit, Trash2, ArrowLeft, Building, Mail } from "lucide-react"
 import { ProtectedRoute } from "@/components/protected-route"
+import { useSubscription } from "@/hooks/use-subscription"
+import { useNotifications } from "@/hooks/use-notifications"
 import Link from "next/link"
 
 interface Sucursal {
@@ -24,6 +29,10 @@ interface Sucursal {
 
 export default function SucursalesPage() {
   const [searchTerm, setSearchTerm] = useState("")
+  const { 
+    canCreateSucursal
+  } = useSubscription()
+  const { showSuccess, showError, handleApiResponse } = useNotifications()
   const [sucursales, setSucursales] = useState<Sucursal[]>([
     {
       id: 1,
@@ -90,25 +99,80 @@ export default function SucursalesPage() {
     setShowDeleteModal(true)
   }
 
-  const handleSaveSucursal = (sucursalData: Omit<Sucursal, "id" | "usuarios">) => {
+  const handleSaveSucursal = async (sucursalData: Omit<Sucursal, "id" | "usuarios">) => {
     if (selectedSucursal) {
-      // Edit existing sucursal
+      // Edit existing sucursal - por ahora mantener lógica local
+      // TODO: Implementar API para editar sucursales
       setSucursales(sucursales.map((s) => (s.id === selectedSucursal.id ? { ...s, ...sucursalData } : s)))
+      showSuccess({ description: "Sucursal actualizada exitosamente" })
+      setShowSucursalModal(false)
     } else {
-      // Add new sucursal
-      const newSucursal: Sucursal = {
-        ...sucursalData,
-        id: Math.max(...sucursales.map((s) => s.id)) + 1,
-        usuarios: 0,
+      // Add new sucursal usando la API real
+      try {
+        const response = await fetch('/api/sucursales/create', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            nombre_sucursal: sucursalData.nombre,
+            direccion: sucursalData.direccion,
+            telefono: sucursalData.telefono,
+            email_contacto_sucursal: `sucursal.${sucursalData.nombre.toLowerCase().replace(/\s+/g, '')}@restaurante.com`, // Email temporal
+            ciudad: "Ciudad", // Campo temporal
+            estado: "Estado", // Campo temporal
+            codigo_postal: "12345", // Campo temporal
+            telefono_contacto: sucursalData.telefono,
+            latitud: "0", // Campo temporal
+            longitud: "0", // Campo temporal
+          }),
+        })
+
+        const result = await handleApiResponse(response, {
+          successMessage: "Sucursal creada exitosamente"
+        })
+
+        if (result.success) {
+          // Actualizar la lista local con la nueva sucursal
+          const newSucursal: Sucursal = {
+            id: result.data.sucursal.id,
+            nombre: result.data.sucursal.nombre_sucursal,
+            direccion: result.data.sucursal.direccion,
+            telefono: result.data.sucursal.telefono,
+            gerente: "Por asignar",
+            status: result.data.sucursal.is_active ? "activa" : "inactiva",
+            usuarios: 0,
+          }
+          setSucursales([...sucursales, newSucursal])
+          setShowSucursalModal(false)
+        }
+      } catch (error) {
+        showError({ 
+          description: "Error al crear la sucursal. Intenta nuevamente." 
+        })
       }
-      setSucursales([...sucursales, newSucursal])
     }
   }
 
-  const handleConfirmDelete = () => {
+  const handleConfirmDelete = async () => {
     if (sucursalToDelete) {
-      setSucursales(sucursales.filter((s) => s.id !== sucursalToDelete.id))
-      setSucursalToDelete(null)
+      try {
+        // TODO: Implementar API para eliminar sucursales
+        // const response = await fetch(`/api/sucursales/${sucursalToDelete.id}`, {
+        //   method: 'DELETE',
+        // })
+        // await handleApiResponse(response, {
+        //   successMessage: "Sucursal eliminada exitosamente"
+        // })
+        
+        // Por ahora usar lógica local
+        setSucursales(sucursales.filter((s) => s.id !== sucursalToDelete.id))
+        showSuccess({ description: "Sucursal eliminada exitosamente" })
+        setSucursalToDelete(null)
+        setShowDeleteModal(false)
+      } catch (error) {
+        showError({ 
+          description: "Error al eliminar la sucursal. Intenta nuevamente." 
+        })
+      }
     }
   }
 
@@ -124,6 +188,8 @@ export default function SucursalesPage() {
       ? "bg-green-500/10 text-green-700 border-green-500/20"
       : "bg-red-500/10 text-red-700 border-red-500/20"
   }
+
+  const isAtLimit = !canCreateSucursal()
 
   return (
     <ProtectedRoute requiredPermission="canAccessSucursalManagement">
@@ -168,20 +234,30 @@ export default function SucursalesPage() {
               <Button
                 onClick={handleInviteSucursal}
                 variant="outline"
-                className="border-primary text-primary hover:bg-primary hover:text-white transition-all duration-300 transform hover:scale-[1.02]"
+                disabled={isAtLimit}
+                className="border-primary text-primary hover:bg-primary hover:text-white transition-all duration-300 transform hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <Mail className="w-4 h-4 mr-2" />
                 Invitar Sucursal
               </Button>
               <Button
                 onClick={handleAddSucursal}
-                className="bg-gradient-to-r from-primary to-secondary hover:from-primary/90 hover:to-secondary/90 transition-all duration-300 transform hover:scale-[1.02] cursor-pointer"
+                disabled={isAtLimit}
+                className="bg-gradient-to-r from-primary to-secondary hover:from-primary/90 hover:to-secondary/90 transition-all duration-300 transform hover:scale-[1.02] cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <Plus className="w-4 h-4 mr-2" />
                 Añadir Sucursal
               </Button>
             </div>
           </div>
+
+          {/* Límites de Suscripción */}
+          <SubscriptionLimitsIndicator 
+            type="sucursales"
+            title="Límites de Sucursales"
+            description="Administra el uso de sucursales en tu plan actual"
+            className="mb-6"
+          />
 
           {/* Stats Cards */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">

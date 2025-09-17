@@ -3,12 +3,13 @@
 import { useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/hooks/use-auth"
+import { useNotifications } from "@/hooks/use-notifications"
 import { createClient } from '@/lib/supabase/client'
 import { Loader2 } from "lucide-react"
-import { create } from "domain"
 
 export default function DashboardRedirect(){
   const { user } = useAuth()
+  const { showError } = useNotifications()
   const router = useRouter()
 
   useEffect(() => {
@@ -28,6 +29,7 @@ export default function DashboardRedirect(){
 
         if (error || !profile){
           console.error(`Error al obtener el perfil ${error}`)
+          showError({ description: "Error al cargar tu perfil. Intenta iniciar sesión nuevamente." })
           router.push('/login')
           return 
         }
@@ -42,11 +44,13 @@ export default function DashboardRedirect(){
         } else {
           // Caso Fallback: perfil incompleto o rol no reconocido
           console.warn(`Perfil incompleto o rol no válido ${profile}`)
+          showError({ description: "Tu perfil necesita ser completado. Te redirigiremos para continuar." })
           router.push('/complete-profile')
         }
 
       } catch (error) {
         console.error(`Error en la redirección del dashboard: ${error}`)
+        showError({ description: "Error inesperado al acceder al sistema. Intenta nuevamente." })
         router.push('/login')
       }
     }

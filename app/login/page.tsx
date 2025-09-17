@@ -9,6 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { ChefHat, Mail, Lock, Eye, EyeOff, Loader2 } from "lucide-react"
 import Link from "next/link"
 import { useAuth } from "@/hooks/use-auth"
+import { useNotifications } from "@/hooks/use-notifications"
 
 export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false)
@@ -17,7 +18,8 @@ export default function LoginPage() {
     password: "",
   })
 
-  const { login, loginWithGoogle, loading, error } = useAuth()
+  const { login, loginWithGoogle, loading } = useAuth()
+  const { showError, showValidationErrors } = useNotifications()
 
   const handleInputChange = (field: string, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }))
@@ -25,18 +27,48 @@ export default function LoginPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    
+    // Validar campos requeridos
+    const errors = []
+    if (!formData.email.trim()) {
+      errors.push({ field: "Correo electrónico", message: "Este campo es requerido" })
+    }
+    if (!formData.password.trim()) {
+      errors.push({ field: "Contraseña", message: "Este campo es requerido" })
+    }
+    
+    if (errors.length > 0) {
+      showValidationErrors(errors)
+      return
+    }
+
+    // Validar formato de email
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!emailRegex.test(formData.email)) {
+      showError({ 
+        title: "Formato inválido",
+        description: "Por favor, ingresa un correo electrónico válido" 
+      })
+      return
+    }
+
     try {
       await login(formData.email, formData.password)
-    } catch (err) {
-      // Error ya manejado por el hook
+    } catch (err: any) {
+      // El hook de auth ya debería manejar errores, pero si no:
+      showError({ 
+        description: err?.message || "Error al iniciar sesión. Verifica tus credenciales e intenta nuevamente" 
+      })
     }
   }
 
   const handleGoogleLogin = async () => {
     try {
       await loginWithGoogle()
-    } catch (err) {
-      // Error ya manejado por el hook
+    } catch (err: any) {
+      showError({ 
+        description: err?.message || "Error al iniciar sesión con Google. Intenta nuevamente" 
+      })
     }
   }
 
@@ -69,12 +101,6 @@ export default function LoginPage() {
         </CardHeader>
 
         <CardContent className="space-y-6">
-          {error && (
-            <div className="p-3 text-sm text-red-600 bg-red-50 border border-red-200 rounded-md">
-              {error}
-            </div>
-          )}
-
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="email" className="flex items-center gap-2">

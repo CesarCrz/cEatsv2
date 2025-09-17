@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -36,11 +36,29 @@ import {
 import Link from "next/link"
 import { useReportes } from "@/hooks/use-reportes"
 import { useAuth } from "@/hooks/use-auth"
+import { useNotifications } from "@/hooks/use-notifications"
 
 export default function ReportesPage() {
   const [timeRange, setTimeRange] = useState("7d")
   const { reportes, isLoading, error } = useReportes()
   const { profile } = useAuth()
+  const { showError, showSuccess } = useNotifications()
+
+  // Mostrar error si existe
+  useEffect(() => {
+    if (error) {
+      showError({ description: "Error al cargar los reportes. Algunos datos pueden no estar disponibles." })
+    }
+  }, [error, showError])
+
+  const handleExportReport = async () => {
+    try {
+      // TODO: Implementar exportación de reportes
+      showError({ description: "Función de exportación en desarrollo. Estará disponible pronto." })
+    } catch (error) {
+      showError({ description: "Error al exportar el reporte. Intenta nuevamente." })
+    }
+  }
 
   if (isLoading) {
     return (
@@ -58,12 +76,15 @@ export default function ReportesPage() {
       <div className="min-h-screen bg-gradient-to-br from-background via-muted/30 to-background flex items-center justify-center">
         <Card className="w-96">
           <CardContent className="pt-6">
-            <div className="text-center text-red-600">
-              <p>Error: {error}</p>
+            <div className="text-center">
+              <BarChart3 className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+              <h3 className="text-lg font-medium mb-2">Error al cargar reportes</h3>
+              <p className="text-sm text-muted-foreground mb-4">
+                No se pudieron cargar los datos de reportes.
+              </p>
               <Button 
                 onClick={() => window.location.reload()} 
-                variant="outline" 
-                className="mt-4"
+                variant="outline"
               >
                 Reintentar
               </Button>
@@ -126,7 +147,11 @@ export default function ReportesPage() {
                   <SelectItem value="1y">1 año</SelectItem>
                 </SelectContent>
               </Select>
-              <Button variant="outline" className="glass hover:glass-strong cursor-pointer bg-transparent">
+              <Button 
+                variant="outline" 
+                className="glass hover:glass-strong cursor-pointer bg-transparent"
+                onClick={handleExportReport}
+              >
                 <Download className="w-4 h-4 mr-2" />
                 Exportar
               </Button>

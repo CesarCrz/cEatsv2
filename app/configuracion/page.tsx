@@ -12,10 +12,12 @@ import { Badge } from "@/components/ui/badge"
 import { Settings, ArrowLeft, Key, Bell, Shield, Building, Save, Eye, EyeOff, Check, AlertTriangle, User, LogOut } from "lucide-react"
 import Link from "next/link"
 import { useAuth } from "@/hooks/use-auth"
+import { useNotifications } from "@/hooks/use-notifications"
 import { createClient } from "@/lib/supabase/client"
 
 export default function ConfiguracionPage() {
   const { profile, logout } = useAuth()
+  const { showSuccess, showError, showValidationErrors } = useNotifications()
   const [selectedSucursal, setSelectedSucursal] = useState("")
   const [newPassword, setNewPassword] = useState("")
   const [showPassword, setShowPassword] = useState(false)
@@ -42,8 +44,21 @@ export default function ConfiguracionPage() {
   }
 
   const handleSavePassword = async () => {
-    if (!selectedSucursal || !newPassword) {
-      alert("Por favor selecciona una sucursal e ingresa una contraseña")
+    // Validación
+    const validationErrors = []
+    
+    if (!selectedSucursal) {
+      validationErrors.push({ field: "Sucursal", message: "Debes seleccionar una sucursal" })
+    }
+    
+    if (!newPassword) {
+      validationErrors.push({ field: "Contraseña", message: "Debes ingresar una nueva contraseña" })
+    } else if (newPassword.length < 6) {
+      validationErrors.push({ field: "Contraseña", message: "La contraseña debe tener al menos 6 caracteres" })
+    }
+
+    if (validationErrors.length > 0) {
+      showValidationErrors(validationErrors)
       return
     }
     
@@ -56,10 +71,10 @@ export default function ConfiguracionPage() {
       setSelectedSucursal("")
       setNewPassword("")
       setShowPassword(false)
-      alert("Contraseña actualizada exitosamente")
+      showSuccess({ description: "Contraseña actualizada exitosamente" })
     } catch (error) {
       console.error("Error updating password:", error)
-      alert("Error al actualizar la contraseña")
+      showError({ description: "Error al actualizar la contraseña. Intenta nuevamente." })
     } finally {
       setIsLoading(false)
     }
@@ -70,10 +85,10 @@ export default function ConfiguracionPage() {
     try {
       // TODO: Guardar en BD
       console.log("Saving notifications:", notifications)
-      alert("Notificaciones guardadas exitosamente")
+      showSuccess({ description: "Preferencias de notificaciones guardadas exitosamente" })
     } catch (error) {
       console.error("Error saving notifications:", error)
-      alert("Error al guardar notificaciones")
+      showError({ description: "Error al guardar las preferencias de notificaciones. Intenta nuevamente." })
     } finally {
       setIsLoading(false)
     }
@@ -84,18 +99,21 @@ export default function ConfiguracionPage() {
     try {
       // TODO: Guardar en BD
       console.log("Saving general settings:", generalSettings)
-      alert("Configuración guardada exitosamente")
+      showSuccess({ description: "Configuración general guardada exitosamente" })
     } catch (error) {
       console.error("Error saving settings:", error)
-      alert("Error al guardar configuración")
+      showError({ description: "Error al guardar la configuración general. Intenta nuevamente." })
     } finally {
       setIsLoading(false)
     }
   }
 
   const handleSignOut = async () => {
-    if (confirm("¿Estás seguro de que deseas cerrar sesión?")) {
+    try {
       await logout()
+      showSuccess({ description: "Has cerrado sesión exitosamente" })
+    } catch (error) {
+      showError({ description: "Error al cerrar sesión. Intenta nuevamente." })
     }
   }
 

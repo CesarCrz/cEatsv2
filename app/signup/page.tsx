@@ -13,11 +13,13 @@ import { ChefHat, ArrowRight, Mail, Lock, User, Phone, Calendar, Building, MapPi
 import Link from "next/link"
 import { CountrySelector } from "@/components/country-selector"
 import { useAuth } from "@/hooks/use-auth" // ✅ Importar useAuth
+import { useNotifications } from "@/hooks/use-notifications"
 
 export default function SignupPage() {
   const [currentStep, setCurrentStep] = useState(1)
   const [isLoading, setIsLoading] = useState(false) // ✅ Estado de carga
   const { loginWithGoogle } = useAuth() // ✅ Obtener función de useAuth
+  const { showSuccess, showError, showValidationErrors } = useNotifications()
 
   const [formData, setFormData] = useState({
     // Datos del administrador
@@ -57,7 +59,48 @@ export default function SignupPage() {
   }
 
   const handleContinue = () => {
-    if (currentStep === 1 && isStep1Valid()) {
+    if (currentStep === 1) {
+      // Validar campos del paso 1
+      const errors = []
+      
+      if (!formData.nombre.trim()) {
+        errors.push({ field: "Nombre", message: "Este campo es requerido" })
+      }
+      if (!formData.apellidos.trim()) {
+        errors.push({ field: "Apellidos", message: "Este campo es requerido" })
+      }
+      if (!formData.email.trim()) {
+        errors.push({ field: "Correo electrónico", message: "Este campo es requerido" })
+      } else {
+        // Validar formato de email
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+        if (!emailRegex.test(formData.email)) {
+          errors.push({ field: "Correo electrónico", message: "Formato de email inválido" })
+        }
+      }
+      if (!formData.password.trim()) {
+        errors.push({ field: "Contraseña", message: "Este campo es requerido" })
+      } else if (formData.password.length < 6) {
+        errors.push({ field: "Contraseña", message: "Debe tener al menos 6 caracteres" })
+      }
+      if (!formData.confirmPassword.trim()) {
+        errors.push({ field: "Confirmar contraseña", message: "Este campo es requerido" })
+      }
+      if (formData.password !== formData.confirmPassword) {
+        errors.push({ field: "Confirmar contraseña", message: "Las contraseñas no coinciden" })
+      }
+      if (!formData.telefono.trim()) {
+        errors.push({ field: "Teléfono", message: "Este campo es requerido" })
+      }
+      if (!formData.fechaNacimiento.trim()) {
+        errors.push({ field: "Fecha de nacimiento", message: "Este campo es requerido" })
+      }
+
+      if (errors.length > 0) {
+        showValidationErrors(errors)
+        return
+      }
+
       setCurrentStep(2)
     }
   }
@@ -65,7 +108,23 @@ export default function SignupPage() {
   // ✅ Conectar con API real
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!isStep2Valid()) return
+    
+    // Validar campos del paso 2
+    const errors = []
+    if (!formData.nombreRestaurante.trim()) {
+      errors.push({ field: "Nombre del restaurante", message: "Este campo es requerido" })
+    }
+    if (!formData.direccionFiscal.trim()) {
+      errors.push({ field: "Dirección fiscal", message: "Este campo es requerido" })
+    }
+    if (!formData.aceptaTerminos) {
+      errors.push({ field: "Términos y condiciones", message: "Debes aceptar los términos y condiciones" })
+    }
+
+    if (errors.length > 0) {
+      showValidationErrors(errors)
+      return
+    }
 
     setIsLoading(true)
     try {
@@ -91,14 +150,25 @@ export default function SignupPage() {
       const data = await response.json()
       
       if (response.ok) {
+        showSuccess({ 
+          title: "¡Registro exitoso!",
+          description: "Hemos enviado un correo de verificación a tu email. Por favor, verifica tu cuenta antes de iniciar sesión.",
+          duration: 8000
+        })
         // Redirigir a login con mensaje de confirmación
-        window.location.href = "/login?message=confirm_email"
+        setTimeout(() => {
+          window.location.href = "/login?message=confirm_email"
+        }, 2000)
       } else {
-        throw new Error(data.error || 'Error al registrar')
+        showError({ 
+          description: data.error || 'Error al registrar usuario. Intenta nuevamente.'
+        })
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error en registro:', error)
-      // Aquí podrías mostrar un toast de error
+      showError({ 
+        description: "Error de conexión. Verifica tu conexión a internet e intenta nuevamente."
+      })
     } finally {
       setIsLoading(false)
     }
@@ -108,8 +178,11 @@ export default function SignupPage() {
   const handleGoogleSignup = async () => {
     try {
       await loginWithGoogle()
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error con Google:', error)
+      showError({ 
+        description: error?.message || "Error al registrarse con Google. Intenta nuevamente."
+      })
     }
   }
 

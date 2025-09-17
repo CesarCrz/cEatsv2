@@ -560,3 +560,5 @@ Las siguientes funcionalidades están **preparadas técnicamente** pero en pausa
 4. **Desarrollar página de aceptación `/aceptar-invitacion/[token]`**
 5. **Integrar templates de email de invitación**
 6. **Testing completo del flujo de invitación**
+
+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

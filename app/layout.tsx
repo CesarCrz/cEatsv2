@@ -1,5 +1,6 @@
 import type React from "react"
 import { Inter, Poppins } from "next/font/google"
+import { Toaster } from "@/components/ui/toaster"
 import "./globals.css"
 
 const inter = Inter({
@@ -31,7 +32,10 @@ export default function RootLayout({
       <head>
         <link rel="icon" href="/favicon.ico" />
       </head>
-      <body className="min-h-screen bg-gradient-to-br from-background via-muted/30 to-background">{children}</body>
+      <body className="min-h-screen bg-gradient-to-br from-background via-muted/30 to-background">
+        {children}
+        <Toaster />
+      </body>
     </html>
   )
 }

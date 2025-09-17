@@ -8,7 +8,9 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { X, Building, Save } from "lucide-react"
+import { Alert, AlertDescription } from "@/components/ui/alert"
+import { X, Building, Save, AlertTriangle } from "lucide-react"
+import { useSubscription } from "@/hooks/use-subscription"
 
 interface Sucursal {
   id?: number
@@ -28,6 +30,7 @@ interface SucursalFormModalProps {
 }
 
 export function SucursalFormModal({ isOpen, onClose, onSave, sucursal, gerentes }: SucursalFormModalProps) {
+  const { canCreateSucursal, limits, usage, getRemainingQuota } = useSubscription()
   const [formData, setFormData] = useState<Sucursal>({
     nombre: "",
     direccion: "",
@@ -35,6 +38,10 @@ export function SucursalFormModal({ isOpen, onClose, onSave, sucursal, gerentes 
     gerente: "",
     status: "activa",
   })
+
+  const isCreating = !sucursal
+  const canCreate = isCreating ? canCreateSucursal() : true // Solo validar límites al crear
+  const remaining = getRemainingQuota('sucursales')
 
   useEffect(() => {
     if (sucursal) {
@@ -152,6 +159,29 @@ export function SucursalFormModal({ isOpen, onClose, onSave, sucursal, gerentes 
             </Select>
           </div>
 
+          {/* Alerta de límites para nuevas sucursales */}
+          {isCreating && (
+            <div className="space-y-3">
+              {!canCreate && (
+                <Alert className="border-red-200 bg-red-50">
+                  <AlertTriangle className="h-4 w-4 text-red-600" />
+                  <AlertDescription className="text-red-800">
+                    Has alcanzado el límite máximo de sucursales para tu plan actual. Actualiza tu plan para agregar más sucursales.
+                  </AlertDescription>
+                </Alert>
+              )}
+              
+              {canCreate && remaining !== 'unlimited' && remaining <= 2 && (
+                <Alert className="border-yellow-200 bg-yellow-50">
+                  <AlertTriangle className="h-4 w-4 text-yellow-600" />
+                  <AlertDescription className="text-yellow-800">
+                    Te quedan {remaining} sucursales disponibles en tu plan actual.
+                  </AlertDescription>
+                </Alert>
+              )}
+            </div>
+          )}
+
           <div className="flex space-x-3 pt-4">
             <Button
               type="button"
@@ -161,7 +191,11 @@ export function SucursalFormModal({ isOpen, onClose, onSave, sucursal, gerentes 
             >
               Cancelar
             </Button>
-            <Button type="submit" className="flex-1 bg-primary hover:bg-primary/90 cursor-pointer">
+            <Button 
+              type="submit" 
+              disabled={isCreating && !canCreate}
+              className="flex-1 bg-primary hover:bg-primary/90 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+            >
               <Save className="w-4 h-4 mr-2" />
               {sucursal ? "Actualizar" : "Crear"}
             </Button>

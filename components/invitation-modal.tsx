@@ -8,9 +8,11 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { Loader2, Mail, MapPin, Phone, Building } from 'lucide-react'
+import { Loader2, Mail, MapPin, Phone, Building, AlertTriangle } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/hooks/use-auth'
+import { useSubscription } from '@/hooks/use-subscription'
+import { useNotifications } from '@/hooks/use-notifications'
 
 interface InvitationModalProps {
   isOpen: boolean
@@ -40,9 +42,12 @@ const ESTADOS_MEXICO = [
 
 export function InvitationModal({ isOpen, onClose, onSuccess }: InvitationModalProps) {
   const { profile } = useAuth()
+  const { canCreateSucursal, getRemainingQuota } = useSubscription()
+  const { showSuccess, showError, showValidationErrors, handleApiResponse } = useNotifications()
   const [isLoading, setIsLoading] = useState(false)
-  const [errors, setErrors] = useState<string[]>([])
-  const [successMessage, setSuccessMessage] = useState('')
+
+  const canCreate = canCreateSucursal()
+  const remaining = getRemainingQuota('sucursales')
   
   const [formData, setFormData] = useState<FormData>({
     nombre_sucursal: '',
@@ -63,47 +68,45 @@ export function InvitationModal({ isOpen, onClose, onSuccess }: InvitationModalP
       ...prev,
       [field]: value
     }))
-    // Limpiar errores cuando el usuario empiece a escribir
-    if (errors.length > 0) {
-      setErrors([])
-    }
   }
 
   const validateForm = () => {
-    const newErrors = []
+    const validationErrors = []
 
     if (!formData.nombre_sucursal.trim()) {
-      newErrors.push('El nombre de la sucursal es requerido')
+      validationErrors.push({ field: "Nombre de sucursal", message: "Este campo es requerido" })
     }
 
     if (!formData.email_contacto_sucursal.trim()) {
-      newErrors.push('El email de contacto es requerido')
+      validationErrors.push({ field: "Email de contacto", message: "Este campo es requerido" })
     } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email_contacto_sucursal)) {
-      newErrors.push('El email no tiene un formato válido')
+      validationErrors.push({ field: "Email de contacto", message: "Formato de email inválido" })
     }
 
     if (!formData.direccion.trim()) {
-      newErrors.push('La dirección es requerida')
+      validationErrors.push({ field: "Dirección", message: "Este campo es requerido" })
     }
 
     if (!formData.ciudad.trim()) {
-      newErrors.push('La ciudad es requerida')
+      validationErrors.push({ field: "Ciudad", message: "Este campo es requerido" })
     }
 
     if (!formData.estado) {
-      newErrors.push('El estado es requerido')
+      validationErrors.push({ field: "Estado", message: "Este campo es requerido" })
     }
 
-    setErrors(newErrors)
-    return newErrors.length === 0
+    if (validationErrors.length > 0) {
+      showValidationErrors(validationErrors)
+      return false
+    }
+
+    return true
   }
 
   const handleSubmit = async () => {
     if (!validateForm()) return
 
     setIsLoading(true)
-    setErrors([])
-    setSuccessMessage('')
 
     try {
       const payload = {
@@ -125,11 +128,11 @@ export function InvitationModal({ isOpen, onClose, onSuccess }: InvitationModalP
       const result = await response.json()
 
       if (!response.ok) {
-        setErrors([result.error || 'Error al enviar la invitación'])
+        showError(result.error || 'Error al enviar la invitación')
         return
       }
 
-      setSuccessMessage('¡Invitación enviada exitosamente! La sucursal recibirá un email con las instrucciones.')
+      showSuccess({ description: '¡Invitación enviada exitosamente! La sucursal recibirá un email con las instrucciones.' })
       
       // Limpiar formulario
       setFormData({
@@ -148,12 +151,11 @@ export function InvitationModal({ isOpen, onClose, onSuccess }: InvitationModalP
       setTimeout(() => {
         onSuccess?.()
         onClose()
-        setSuccessMessage('')
       }, 2000)
 
     } catch (error) {
       console.error('Error al enviar invitación:', error)
-      setErrors(['Error de conexión. Intenta nuevamente.'])
+      showError({ description: 'Error de conexión. Intenta nuevamente.' })
     } finally {
       setIsLoading(false)
     }
@@ -172,8 +174,6 @@ export function InvitationModal({ isOpen, onClose, onSuccess }: InvitationModalP
         latitud: '',
         longitud: ''
       })
-      setErrors([])
-      setSuccessMessage('')
       onClose()
     }
   }
@@ -192,27 +192,6 @@ export function InvitationModal({ isOpen, onClose, onSuccess }: InvitationModalP
         </DialogHeader>
 
         <div className="space-y-6 py-4">
-          {/* Mensajes de error y éxito */}
-          {errors.length > 0 && (
-            <Alert variant="destructive">
-              <AlertDescription>
-                <ul className="list-disc list-inside">
-                  {errors.map((error, index) => (
-                    <li key={index}>{error}</li>
-                  ))}
-                </ul>
-              </AlertDescription>
-            </Alert>
-          )}
-
-          {successMessage && (
-            <Alert className="border-green-200 bg-green-50">
-              <AlertDescription className="text-green-800">
-                {successMessage}
-              </AlertDescription>
-            </Alert>
-          )}
-
           {/* Información básica */}
           <div className="space-y-4">
             <div className="flex items-center space-x-2 text-sm font-medium text-muted-foreground">
@@ -357,6 +336,27 @@ export function InvitationModal({ isOpen, onClose, onSuccess }: InvitationModalP
           </div>
         </div>
 
+        {/* Alertas de límites */}
+        <div className="space-y-3 mt-4">
+          {!canCreate && (
+            <Alert className="border-red-200 bg-red-50">
+              <AlertTriangle className="h-4 w-4 text-red-600" />
+              <AlertDescription className="text-red-800">
+                Has alcanzado el límite máximo de sucursales para tu plan actual. Actualiza tu plan para poder enviar más invitaciones.
+              </AlertDescription>
+            </Alert>
+          )}
+          
+          {canCreate && remaining !== 'unlimited' && remaining <= 2 && (
+            <Alert className="border-yellow-200 bg-yellow-50">
+              <AlertTriangle className="h-4 w-4 text-yellow-600" />
+              <AlertDescription className="text-yellow-800">
+                Te quedan {remaining} sucursales disponibles en tu plan actual.
+              </AlertDescription>
+            </Alert>
+          )}
+        </div>
+
         <DialogFooter>
           <Button
             variant="outline"
@@ -367,8 +367,8 @@ export function InvitationModal({ isOpen, onClose, onSuccess }: InvitationModalP
           </Button>
           <Button
             onClick={handleSubmit}
-            disabled={isLoading}
-            className="bg-gradient-to-r from-primary to-secondary hover:from-primary/90 hover:to-secondary/90"
+            disabled={isLoading || !canCreate}
+            className="bg-gradient-to-r from-primary to-secondary hover:from-primary/90 hover:to-secondary/90 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isLoading ? (
               <>

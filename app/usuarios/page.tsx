@@ -9,6 +9,7 @@ import { UserFormModal } from "@/components/user-form-modal"
 import { DeleteConfirmationModal } from "@/components/delete-confirmation-modal"
 import { Users, Plus, Search, Mail, Building, Shield, Edit, Trash2, ArrowLeft, UserCheck, UserX } from "lucide-react"
 import { ProtectedRoute } from "@/components/protected-route"
+import { useNotifications } from "@/hooks/use-notifications"
 import Link from "next/link"
 
 interface User {
@@ -22,6 +23,7 @@ interface User {
 }
 
 export default function UsuariosPage() {
+  const { showSuccess, showError } = useNotifications()
   const [searchTerm, setSearchTerm] = useState("")
   const [usuarios, setUsuarios] = useState<User[]>([
     {
@@ -102,25 +104,45 @@ export default function UsuariosPage() {
     setShowDeleteModal(true)
   }
 
-  const handleSaveUser = (userData: Omit<User, "id" | "ultimoAcceso">) => {
-    if (selectedUser) {
-      // Edit existing user
-      setUsuarios(usuarios.map((u) => (u.id === selectedUser.id ? { ...u, ...userData } : u)))
-    } else {
-      // Add new user
-      const newUser: User = {
-        ...userData,
-        id: Math.max(...usuarios.map((u) => u.id)) + 1,
-        ultimoAcceso: new Date().toISOString().split("T")[0],
+  const handleSaveUser = async (userData: Omit<User, "id" | "ultimoAcceso">) => {
+    try {
+      if (selectedUser) {
+        // Edit existing user
+        // TODO: Implementar API para editar usuarios
+        setUsuarios(usuarios.map((u) => (u.id === selectedUser.id ? { ...u, ...userData } : u)))
+        showSuccess({ description: "Usuario actualizado exitosamente" })
+      } else {
+        // Add new user
+        // TODO: Implementar API para crear usuarios
+        const newUser: User = {
+          ...userData,
+          id: Math.max(...usuarios.map((u) => u.id)) + 1,
+          ultimoAcceso: new Date().toISOString().split("T")[0],
+        }
+        setUsuarios([...usuarios, newUser])
+        showSuccess({ description: "Usuario creado exitosamente" })
       }
-      setUsuarios([...usuarios, newUser])
+      setShowUserModal(false)
+    } catch (error) {
+      showError({ 
+        description: selectedUser 
+          ? "Error al actualizar el usuario. Intenta nuevamente." 
+          : "Error al crear el usuario. Intenta nuevamente."
+      })
     }
   }
 
-  const handleConfirmDelete = () => {
+  const handleConfirmDelete = async () => {
     if (userToDelete) {
-      setUsuarios(usuarios.filter((u) => u.id !== userToDelete.id))
-      setUserToDelete(null)
+      try {
+        // TODO: Implementar API para eliminar usuarios
+        setUsuarios(usuarios.filter((u) => u.id !== userToDelete.id))
+        showSuccess({ description: "Usuario eliminado exitosamente" })
+        setUserToDelete(null)
+        setShowDeleteModal(false)
+      } catch (error) {
+        showError({ description: "Error al eliminar el usuario. Intenta nuevamente." })
+      }
     }
   }
 

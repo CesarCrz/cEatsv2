@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -10,8 +10,10 @@ import { OrderDetailModal } from "@/components/order-detail-modal"
 import { History, ArrowLeft, Search, Filter, Download, Calendar } from "lucide-react"
 import Link from "next/link"
 import { usePedidos } from "@/hooks/use-pedidos"
+import { useNotifications } from "@/hooks/use-notifications"
 
 export default function HistorialPage() {
+  const { showError } = useNotifications()
   const [searchTerm, setSearchTerm] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
   const [dateFilter, setDateFilter] = useState("7d")
@@ -19,6 +21,13 @@ export default function HistorialPage() {
   const [showOrderDetail, setShowOrderDetail] = useState(false)
   
   const { pedidos, isLoading, error } = usePedidos()
+
+  // Mostrar error si existe
+  useEffect(() => {
+    if (error) {
+      showError({ description: "Error al cargar el historial de pedidos. Intenta recargar la página." })
+    }
+  }, [error, showError])
 
   // Mapear pedidos a formato compatible con la UI
   const historicalOrders = pedidos.map(pedido => ({
@@ -41,6 +50,15 @@ export default function HistorialPage() {
       items: order.itemsList,
     })
     setShowOrderDetail(true)
+  }
+
+  const handleExport = async () => {
+    try {
+      // TODO: Implementar exportación de datos
+      showError({ description: "Función de exportación en desarrollo. Estará disponible pronto." })
+    } catch (error) {
+      showError({ description: "Error al exportar los datos. Intenta nuevamente." })
+    }
   }
 
   const filteredOrders = historicalOrders.filter((order) => {
@@ -98,7 +116,11 @@ export default function HistorialPage() {
                 <p className="text-xs text-muted-foreground">Consulta todos los pedidos anteriores</p>
               </div>
             </div>
-            <Button variant="outline" className="glass hover:glass-strong cursor-pointer bg-transparent">
+            <Button 
+              variant="outline" 
+              className="glass hover:glass-strong cursor-pointer bg-transparent"
+              onClick={handleExport}
+            >
               <Download className="w-4 h-4 mr-2" />
               Exportar
             </Button>
