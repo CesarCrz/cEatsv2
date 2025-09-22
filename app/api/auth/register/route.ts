@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { createServiceRoleClient } from '@/lib/supabase/service-role'
 import { NextResponse } from 'next/server'
 
 export async function POST(request: Request) {
@@ -21,7 +22,11 @@ export async function POST(request: Request) {
             terminos_aceptados = false
         } = await request.json()
 
+        // Cliente normal para autenticación
         const supabase = await createClient()
+        
+        // Cliente con service role para operaciones que requieren bypassing RLS
+        const supabaseAdmin = createServiceRoleClient()
 
         // Validar que se aceptaron términos
         if (!terminos_aceptados) {
@@ -44,10 +49,38 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: 'No se pudo crear el usuario' }, { status: 400 })
         }
 
-        // Crear el restaurante
+
+        // Crear perfil de usuario (USANDO SERVICE ROLE para bypassing RLS)
+        const { error: profileError } = await supabaseAdmin
+            .from('user_profiles')
+            .insert({
+                id: authData.user.id,
+                email: email,
+                nombre: nombre,
+                apellidos: apellidos,
+                telefono: telefono,
+                country_code: country_code,
+                fecha_nacimiento: fecha_nacimiento || null,
+                restaurante_id: null, // Temporal, se actualiza después
+                role: 'admin', // Admin del restaurante
+                is_active: true,
+                is_first_login: true,
+                email_verified: false, // Se verificará con el email de Supabase
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString()
+            })
+
+        if (profileError) {
+            console.error('Error al crear perfil:', profileError)
+            return NextResponse.json({ 
+                error: 'Error al crear el perfil de usuario' 
+            }, { status: 500 })
+        }
+
+        // Crear el restaurante (USANDO SERVICE ROLE para bypassing RLS)
         let restaurante_id = null
         if (restaurante_nombre) {
-            const { data: restaurante, error: restauranteError } = await supabase
+            const { data: restaurante, error: restauranteError } = await supabaseAdmin
                 .from('restaurantes')
                 .insert({
                     nombre: restaurante_nombre,
@@ -74,32 +107,22 @@ export async function POST(request: Request) {
             restaurante_id = restaurante.id
         }
 
-        // Crear perfil de usuario
-        const { error: profileError } = await supabase
+        // Actualizar el usuario con el restaurante_id (USANDO SERVICE ROLE)
+        const { error: updateError } = await supabaseAdmin
             .from('user_profiles')
-            .insert({
-                id: authData.user.id,
-                email: email,
-                nombre: nombre,
-                apellidos: apellidos,
-                telefono: telefono,
-                country_code: country_code,
-                fecha_nacimiento: fecha_nacimiento || null,
+            .update({
                 restaurante_id: restaurante_id,
-                role: 'admin', // Admin del restaurante
-                is_active: true,
-                is_first_login: true,
-                email_verified: false, // Se verificará con el email de Supabase
-                created_at: new Date().toISOString(),
                 updated_at: new Date().toISOString()
             })
+            .eq('id', authData.user.id)
 
-        if (profileError) {
-            console.error('Error al crear perfil:', profileError)
+        if (updateError) {
+            console.error('Error al actualizar perfil con restaurante:', updateError)
             return NextResponse.json({ 
-                error: 'Error al crear el perfil de usuario' 
+                error: 'Error al vincular usuario con restaurante' 
             }, { status: 500 })
         }
+
 
         return NextResponse.json({ 
             success: true, 
