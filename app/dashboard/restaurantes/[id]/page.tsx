@@ -28,7 +28,7 @@ import {
     ShoppingBag,
     MapPin,
 } from "lucide-react"
-import { useRouter } from "next/navigation"
+import { useParams, useRouter } from "next/navigation"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Pedido, Sucursal, Analytics } from "@/types/pedidos"
 import { useAuth } from "@/hooks/use-auth"
@@ -41,18 +41,16 @@ interface SucursalConStats extends Sucursal {
     ingresos_hoy: number
 }
 
-interface RestauranteDashboardProps {
-  params: { id: string }
-}
 
 
-export default function RestauranteDashboard({ params }: RestauranteDashboardProps) {
+export default function RestauranteDashboard() {
     const { user } = useAuth()
     const router = useRouter()
-    const restauranteId = params.id
+    const params = useParams()
+    const restauranteId = params.id as string
     const supabase = createClient()
     
-    const [loading, setLoading] = useState(true)
+    const [loading, setLoading] = useState(false)
     const [sucursales, setSucursales] = useState<SucursalConStats[]>([])
     const [analytics, setAnalytics] = useState<Analytics>({
         total_pedidos_hoy: 0,
@@ -63,15 +61,44 @@ export default function RestauranteDashboard({ params }: RestauranteDashboardPro
     const [selectedOrder, setSelectedOrder] = useState<Pedido | null>(null)
     const [orderToCancel, setOrderToCancel] = useState<Pedido | null>(null)
 
+
+    // Hook de tiempo real para todas las sucursales del restaurante
+    const {
+        pedidos: pedidosRecientes,
+        isConnected,
+        newOrdersCount: nuevos,
+        loading: loadingPedidos,
+        startLoopingSound,
+        stopLoopingSound,
+        markOrdersAsSeen,
+        toggleAudio,
+        isAudioEnabled
+    } = usePedidosRealtime({
+        sucursalIds: sucursales.map(s => s.id), // Todas las sucursales
+        enableSound: sucursales.length > 0, // Solo si hay sucursales
+        enableBrowserNotification: sucursales.length > 0,
+        onNewOrder: (pedido) => {
+            console.log('🍽️ Nuevo pedido recibido en restaurante:', pedido.whatsapp_order_id, 'Sucursal:', pedido.nombre_sucursal)
+            // Recargar analytics cuando llega nuevo pedido
+            cargarAnalytics()
+        },
+        onOrderUpdate: (pedido) => {
+            console.log('📝 Pedido actualizado en restaurante:', pedido.whatsapp_order_id, pedido.estado)
+            // Recargar analytics cuando se actualiza pedido
+            cargarAnalytics()
+        }
+    })
+
+
     // Componente Sidebar para Admin
     const AdminSidebar = () => {
         const menuItems = [
             { name: 'Dashboard', href: `/dashboard/restaurantes/${restauranteId}`, icon: Building, active: true },
-            { name: 'Gestión Sucursales', href: '/sucursales', icon: MapPin },
-            { name: 'Usuarios', href: '/usuarios', icon: Users },
-            { name: 'Historial', href: '/historial', icon: History },
-            { name: 'Reportes', href: '/reportes', icon: BarChart },
-            { name: 'Configuración', href: '/configuracion', icon: Settings }
+            { name: 'Gestión Sucursales', href: `/dashboard/restaurantes/${restauranteId}/sucursales`, icon: MapPin },
+            { name: 'Usuarios', href: `/dashboard/restaurantes/${restauranteId}/usuarios`, icon: Users },
+            { name: 'Historial', href: `/dashboard/restaurantes/${restauranteId}/historial`, icon: History },
+            { name: 'Reportes', href: `/dashboard/restaurantes/${restauranteId}/reportes`, icon: BarChart },
+            { name: 'Configuración', href: `/dashboard/restaurantes/${restauranteId}/configuracion`, icon: Settings }
         ]
 
         return (
@@ -122,33 +149,6 @@ export default function RestauranteDashboard({ params }: RestauranteDashboardPro
         )
     }
 
-    // Hook de tiempo real para todas las sucursales del restaurante
-    const {
-        pedidos: pedidosRecientes,
-        isConnected,
-        newOrdersCount: nuevos,
-        loading: loadingPedidos,
-        startLoopingSound,
-        stopLoopingSound,
-        markOrdersAsSeen,
-        toggleAudio,
-        isAudioEnabled
-    } = usePedidosRealtime({
-        sucursalIds: sucursales.map(s => s.id), // Todas las sucursales
-        enableSound: true,
-        enableBrowserNotification: true,
-        onNewOrder: (pedido) => {
-            console.log('🍽️ Nuevo pedido recibido en restaurante:', pedido.whatsapp_order_id, 'Sucursal:', pedido.nombre_sucursal)
-            // Recargar analytics cuando llega nuevo pedido
-            cargarAnalytics()
-        },
-        onOrderUpdate: (pedido) => {
-            console.log('📝 Pedido actualizado en restaurante:', pedido.whatsapp_order_id, pedido.estado)
-            // Recargar analytics cuando se actualiza pedido
-            cargarAnalytics()
-        }
-    })
-
     // Verificar acceso al restaurante
     const verificarAcceso = async () => {
         if (!user) {
@@ -156,23 +156,39 @@ export default function RestauranteDashboard({ params }: RestauranteDashboardPro
             return false
         }
 
-        const { data: userProfile } = await supabase
-            .from('user_profiles')
-            .select('restaurante_id')
-            .eq('id', user.id)
-            .single()
+        try {
+            const response = await fetch('/api/auth/check-user-status', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ userId: user.id }),
+            })
 
-        if (!userProfile) {
+            if (!response.ok) {
+                console.log('❌ Response not ok:', response.status)
+                router.push('/dashboard')
+                return false
+            }
+            
+            const userStatus = await response.json()
+            
+            // 🔍 DEBUG TEMPORAL
+            console.log('🔍 UserStatus:', userStatus)
+            console.log('🔍 RestauranteId from URL:', restauranteId)
+            console.log('🔍 Comparison:', userStatus.restaurante_id, '!==', restauranteId, '=', userStatus.restaurante_id !== restauranteId)
+            
+            if (userStatus.restaurante_id !== restauranteId) {
+                console.log('❌ Acceso denegado - IDs no coinciden')
+                router.push('/dashboard')
+                return false
+            }
+
+            console.log('✅ Acceso permitido')
+            return true
+        } catch (error) {
+            console.error('Error verificando acceso:', error)
             router.push('/dashboard')
             return false
         }
-
-        if (userProfile.restaurante_id !== restauranteId) {
-            router.push('/dashboard')
-            return false
-        }
-
-        return true
     }
 
     // Cargar sucursales del restaurante
@@ -183,7 +199,7 @@ export default function RestauranteDashboard({ params }: RestauranteDashboardPro
                 id,
                 nombre_sucursal,
                 direccion,
-                telefono,
+                telefono_contacto,
                 is_active,
                 restaurante_id
             `)
@@ -288,20 +304,40 @@ export default function RestauranteDashboard({ params }: RestauranteDashboardPro
     }
 
     useEffect(() => {
-        const inicializar = async () => {
-            const tieneAcceso = await verificarAcceso()
-            if (!tieneAcceso) return
+        console.log('🔍 useEffect 1 - Verificando condiciones:')
+        console.log('🔍 user:', user)
+        console.log('🔍 user?.id:', user?.id)
+        console.log('🔍 restauranteId:', restauranteId)
+        console.log('🔍 Condición (user && restauranteId):', !!(user && restauranteId))
+        
+        if (user && restauranteId) {
+            console.log('✅ Condiciones cumplidas, iniciando...')
+            const inicializar = async () => {
+                const tieneAcceso = await verificarAcceso()
+                if (!tieneAcceso) return
 
-            await cargarSucursales()
-            setLoading(false)
+                await cargarSucursales()
+                setLoading(false)
+            }
+            inicializar()
+        } else {
+            console.log('❌ Condiciones NO cumplidas')
+            console.log('❌ Falta user:', !user)
+            console.log('❌ Falta restauranteId:', !restauranteId)
         }
-
-        inicializar()
     }, [user, restauranteId])
 
     useEffect(() => {
+        console.log('useeffect 2 iniciado')
         if (sucursales.length > 0) {
             cargarAnalytics()
+        } else {
+            setAnalytics({
+                total_pedidos_hoy: 0,
+                ingresos_hoy: 0,
+                pedidos_pendientes: 0,
+                total_sucursales: 0
+            })
         }
     }, [sucursales])
 
@@ -379,6 +415,25 @@ export default function RestauranteDashboard({ params }: RestauranteDashboardPro
                 </div>
 
                 <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-8">
+                {/* Mensaje si no hay sucursales */}
+                {sucursales.length === 0 && !loading && (
+                    <Card className="mb-8">
+                        <CardContent className="text-center py-12">
+                            <Building className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+                            <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
+                                No tienes sucursales creadas
+                            </h3>
+                            <p className="text-gray-600 dark:text-gray-400 mb-6">
+                                Crea tu primera sucursal para comenzar a recibir y gestionar pedidos
+                            </p>
+                            <Button onClick={() => router.push(`/dashboard/restaurantes/${restauranteId}/sucursales`)} className="inline-flex items-center">
+                                <Plus className="mr-2 h-4 w-4" />
+                                Crear Primera Sucursal
+                            </Button>
+                        </CardContent>
+                    </Card>
+                )}
+
                 {/* Analytics Cards */}
                 <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4 mb-8">
                     <Card>

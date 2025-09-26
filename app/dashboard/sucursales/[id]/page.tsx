@@ -29,7 +29,7 @@ import {
     Filter,
     RefreshCw,
 } from "lucide-react"
-import { useRouter } from "next/navigation"
+import { useRouter, useParams } from "next/navigation"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Pedido, Sucursal, Analytics } from "@/types/pedidos"
@@ -37,10 +37,6 @@ import { useAuth } from "@/hooks/use-auth"
 import { createClient } from "@/lib/supabase/client"
 import { usePedidosRealtime } from "@/hooks/use-pedidos-realtime"
 
-
-interface SucursalDashboardProps {
-  params: { id: string }
-}
 
 // Analytics específicos para sucursal (extiende el tipo base)
 interface SucursalAnalytics extends Analytics {
@@ -53,10 +49,11 @@ interface SucursalAnalytics extends Analytics {
   }>
 }
 
-export default function SucursalDashboard({ params }: SucursalDashboardProps) {
+export default function SucursalDashboard() {
     const { user } = useAuth()
     const router = useRouter()
-    const sucursalId = params.id
+    const params = useParams()
+    const sucursalId = params.id as string
     const supabase = createClient()
     
     const [loading, setLoading] = useState(true)

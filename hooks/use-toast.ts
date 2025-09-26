@@ -9,7 +9,7 @@ import type {
 } from "@/components/ui/toast"
 
 const TOAST_LIMIT = 1
-const TOAST_REMOVE_DELAY = 1000000
+const TOAST_REMOVE_DELAY = 5000 // Cambiado de 1000000 a 5000ms (5 segundos)
 
 type ToasterToast = ToastProps & {
   id: string
@@ -75,8 +75,11 @@ const addToRemoveQueue = (toastId: string) => {
 }
 
 export const reducer = (state: State, action: Action): State => {
+  console.log('🔄 Toast reducer:', action.type, action)
+  
   switch (action.type) {
     case "ADD_TOAST":
+      console.log('➕ Agregando toast:', action.toast)
       return {
         ...state,
         toasts: [action.toast, ...state.toasts].slice(0, TOAST_LIMIT),
@@ -93,8 +96,6 @@ export const reducer = (state: State, action: Action): State => {
     case "DISMISS_TOAST": {
       const { toastId } = action
 
-      // ! Side effects ! - This could be extracted into a dismissToast() action,
-      // but I'll keep it here for simplicity
       if (toastId) {
         addToRemoveQueue(toastId)
       } else {
@@ -144,6 +145,7 @@ type Toast = Omit<ToasterToast, "id">
 
 function toast({ ...props }: Toast) {
   const id = genId()
+  console.log('🍞 Creando toast con ID:', id, props)
 
   const update = (props: ToasterToast) =>
     dispatch({
@@ -175,6 +177,7 @@ function useToast() {
   const [state, setState] = React.useState<State>(memoryState)
 
   React.useEffect(() => {
+    console.log('🎯 useToast registrando listener')
     listeners.push(setState)
     return () => {
       const index = listeners.indexOf(setState)

@@ -1,13 +1,14 @@
 import { createClient } from '@/lib/supabase/server'
+import { createServiceRoleClient } from '@/lib/supabase/service-role'
 import { NextResponse } from 'next/server'
 
 export async function POST(request: Request) {
     try {
         const { email, code } = await request.json()
-        const supabase = await createClient()
+        const supabaseAdmin = createServiceRoleClient()
 
         // Buscar el usuario por email y código
-        const { data: profile, error } = await supabase 
+        const { data: profile, error } = await supabaseAdmin
             .from('user_profiles')
             .select('id, verification_code, verification_code_expires_at, email_verified')
             .eq('email', email)
@@ -16,9 +17,9 @@ export async function POST(request: Request) {
         if (error || !profile) {
             return NextResponse.json({ error: 'Código Inválido' }, { status: 400 })
         }
-
         // Convertir código a número para comparar
         const inputCode = parseInt(code)
+        console.log(`Código ingresado por el usuario: ${inputCode}, código esperado: ${profile.verification_code}`)
         if (profile.verification_code !== inputCode) {
             return NextResponse.json({ error: 'Código incorrecto' }, { status: 400 })
         }
@@ -29,10 +30,11 @@ export async function POST(request: Request) {
         }
 
         // Limpiar código y marcar como verificado
-        await supabase
+        await supabaseAdmin
             .from('user_profiles')
             .update({
                 email_verified: true,
+                isVerified: true,
                 verification_code: null,
                 verification_code_expires_at: null,
                 updated_at: new Date().toISOString()

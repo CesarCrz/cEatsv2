@@ -7,15 +7,15 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Mail, ArrowRight, RefreshCw } from "lucide-react"
 import Link from "next/link"
-import { useToast } from "@/components/ui/use-toast"
+import { useToast } from "@/hooks/use-toast"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/hooks/use-auth"
 
-const { toast } = useToast()
-const router = useRouter()
-const { user } = useAuth()
 
 export default function VerifyEmailPage() {
+  const { toast } = useToast()
+  const router = useRouter()
+  const { user } = useAuth()
   const [code, setCode] = useState(["", "", "", "", "", ""])
   const [isLoading, setIsLoading] = useState(false)
   const [isResending, setIsResending] = useState(false)
@@ -26,7 +26,7 @@ export default function VerifyEmailPage() {
 
     const newCode = [...code]
     newCode[index] = value
-    setCode(newCode)
+    setCode(newCode)  
 
     // Auto-focus al siguiente input
     if (value && index < 5) {
@@ -62,11 +62,11 @@ export default function VerifyEmailPage() {
       })
 
       const data = await response.json()
+      console.log('Respuesta del servidor:', JSON.stringify(data))
 
       if (!response.ok) {
         throw new Error(data.error || 'Error al verificar el código')
       }
-
       // Mostrar toast de éxito
       toast({
         title: "¡Verificación exitosa!",
@@ -74,8 +74,41 @@ export default function VerifyEmailPage() {
         variant: "default",
       })
 
-      // Redirigir al dashboard
-      router.push('/dashboard')
+      // Debug del router
+      console.log('🚀 Redirigiendo al dashboard...')
+      console.log('🔍 Router object:', router)
+      console.log('🔍 Router.push function:', typeof router.push)
+      
+      // Múltiples métodos para redirección
+      try {
+        console.log('⏳ Intentando router.push con timeout...')
+        
+        setTimeout(() => {
+          console.log('🔄 Ejecutando router.push dentro del timeout...')
+          router.push('/dashboard')
+          console.log('✅ router.push ejecutado')
+        }, 1500)
+        
+        // Método alternativo con replace
+        setTimeout(() => {
+          console.log('🔄 Intentando router.replace como backup...')
+          router.replace('/dashboard')
+        }, 3000)
+        
+        // Método alternativo con window.location
+        setTimeout(() => {
+          console.log('🔄 Intentando window.location.href como último recurso...')
+          window.location.href = '/dashboard'
+        }, 4500)
+        
+      } catch (routerError) {
+        console.error('💥 Error en router:', routerError)
+        // Fallback a window.location
+        setTimeout(() => {
+          window.location.href = '/dashboard'
+        }, 1000)
+      }
+
     } catch (error: any) {
       console.error('Error:', error)
       // Mostrar toast de error
@@ -90,42 +123,45 @@ export default function VerifyEmailPage() {
   }
 
   // Actualiza la función handleResendCode
-  const handleResendCode = async () => {
-    setIsResending(true)
+const handleResendCode = async () => {
+  setIsResending(true)
+  console.log(`ENVIANDO AL EMAIL: ${JSON.stringify({ email: user?.email })}`)
 
-    try {
-      const response = await fetch('/api/auth/resend-verification', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ email: user?.email }),
-      })
+  try {
+    console.log('🔄 Iniciando fetch...')
 
-      const data = await response.json()
+    const response = await fetch('/api/auth/resend-verification', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ email: user?.email }),
+    })
 
-      if (!response.ok) {
-        throw new Error(data.error || 'Error al reenviar el código')
-      }
+    let data
+    data = await response.json()
 
-      // Mostrar toast de éxito
-      toast({
-        title: "Código reenviado",
-        description: "Hemos enviado un nuevo código a tu correo electrónico.",
-        variant: "default",
-      })
-    } catch (error: any) {
-      console.error('Error:', error)
-      // Mostrar toast de error
-      toast({
-        title: "Error al reenviar",
-        description: error.message || "No se pudo reenviar el código. Inténtalo nuevamente.",
-        variant: "destructive",
-      })
-    } finally {
-      setIsResending(false)
+    if (!response.ok) {
+      throw new Error(data.error || 'Error al reenviar el código')
     }
+
+    console.log('enviando el toast al ui')
+    toast({
+      title: "Código reenviado",
+      description: "Hemos enviado un nuevo código a tu correo electrónico.",
+      variant: "default",
+    })
+    
+  } catch (error: any) {
+    toast({
+      title: "Error al reenviar",
+      description: error.message || "No se pudo reenviar el código. Inténtalo nuevamente.",
+      variant: "destructive",
+    })
+  } finally {
+    setIsResending(false)
   }
+}
 
   useEffect(() => {
     inputRefs.current[0]?.focus()
@@ -222,8 +258,8 @@ export default function VerifyEmailPage() {
             </div>
 
             <div className="pt-4 border-t border-border/50">
-              <Link href="/signup" className="text-sm text-muted-foreground hover:text-primary transition-colors">
-                ← Volver al registro
+              <Link href="/login" className="text-sm text-muted-foreground hover:text-primary transition-colors">
+                ← Volver al inicio de sesión
               </Link>
             </div>
           </div>

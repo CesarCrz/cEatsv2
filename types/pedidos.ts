@@ -39,7 +39,7 @@ export interface Sucursal {
     id: string
     nombre_sucursal: string
     direccion: string
-    telefono: string
+    telefono_contacto: string
     is_active: boolean
     restaurante_id: string
 }

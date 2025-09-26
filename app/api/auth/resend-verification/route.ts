@@ -2,14 +2,16 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 import { generateVerificationCode, sendCustomEmail, getLoginVerificationTemplate } from '@/lib/email'
+import { createServiceRoleClient } from '@/lib/supabase/service-role'
 
 export async function POST(request: Request) {
     try {
         const { email } = await request.json()
-        const supabase = await createClient()
+        const supabaseAdmin = createServiceRoleClient()
 
+        console.log('api de reenviar codigo iniciado...')
         // Verificar si el usuario existe
-        const { data: profile, error } = await supabase
+        const { data: profile, error } = await supabaseAdmin
             .from('user_profiles')
             .select('id, email, nombre, apellidos')
             .eq('email', email)
@@ -26,7 +28,7 @@ export async function POST(request: Request) {
         const expirationTimestamp = Date.now() + (10 * 60 * 1000)
 
         // Guardar el código en la base de datos
-        await supabase
+        await supabaseAdmin
             .from('user_profiles')
             .update({
                 verification_code: parseInt(code),
@@ -34,6 +36,7 @@ export async function POST(request: Request) {
                 updated_at: new Date().toISOString()
             })
             .eq('id', profile.id)
+        console.log('Código guardado en la base de datos:', code)
 
         // Generar la plantilla de email
         const nombreCompleto = `${profile.nombre || ''} ${profile.apellidos || ''}`.trim() || 'Usuario'

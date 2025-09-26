@@ -2,14 +2,15 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 import { generateVerificationCode, sendCustomEmail, getLoginVerificationTemplate } from '@/lib/email'
+import { createServiceRoleClient } from '@/lib/supabase/service-role'
 
 export async function POST(request: Request) {
     try {
         const { email, password } = await request.json()
-        const supabase = await createClient()
+        const supabaseAdmin = createServiceRoleClient()
 
         // Autenticar usuario
-        const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+        const { data: authData, error: authError } = await supabaseAdmin.auth.signInWithPassword({
             email,
             password,
         })
@@ -30,7 +31,7 @@ export async function POST(request: Request) {
         }
 
         // Obtener perfil del usuario
-        const { data: profile, error: profileError } = await supabase
+        const { data: profile, error: profileError } = await supabaseAdmin
             .from('user_profiles')
             .select('id, nombre, apellidos, role, is_active, verification_code')
             .eq('id', authData.user.id)
@@ -60,7 +61,7 @@ export async function POST(request: Request) {
         const expirationTimestamp = Date.now() + (10 * 60 * 1000) // 10 minutos en timestamp
 
         // Actualizar código en la base de datos
-        await supabase
+        await supabaseAdmin
             .from('user_profiles')
             .update({
                 verification_code: parseInt(verificationCode),

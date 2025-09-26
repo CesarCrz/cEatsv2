@@ -66,8 +66,6 @@ export async function POST(request: Request) {
                 is_active: true,
                 is_first_login: true,
                 email_verified: false, // Se verificará con el email de Supabase
-                created_at: new Date().toISOString(),
-                updated_at: new Date().toISOString()
             })
 
         if (profileError) {
@@ -90,9 +88,7 @@ export async function POST(request: Request) {
                     direccion_fiscal: direccion_fiscal,
                     rfc: rfc || null,
                     terminos_aceptados_at: new Date().toISOString(),
-                    is_active: true,
-                    created_at: new Date().toISOString(),
-                    updated_at: new Date().toISOString()
+                    is_active: true
                 })
                 .select('id')
                 .single()
