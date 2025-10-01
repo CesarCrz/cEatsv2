@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import Stripe from 'stripe'
+import { createServiceRoleClient } from '@/lib/supabase/service-role'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: '2025-08-27.basil',
@@ -14,7 +15,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Restaurant ID es requerido' }, { status: 400 })
     }
 
-    const supabase = await createClient()
+    const supabase = createServiceRoleClient()
 
     // Obtener la suscripción activa para conseguir el customer_id de Stripe
     const { data: subscription, error: subscriptionError } = await supabase

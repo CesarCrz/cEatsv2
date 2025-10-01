@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react'
-import { createClient } from '@/lib/supabase/client'
 import { useAuth } from './use-auth'
 
 interface PlanLimits {
@@ -46,76 +45,67 @@ export function useSubscription() {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   
-  const { profile } = useAuth()
-  const supabase = createClient()
+  const { profile, user } = useAuth()
+  // ✅ ELIMINADO: const supabase = createServiceRoleClient()
 
   const loadSubscriptionData = async () => {
-    if (!profile?.restaurante_id) return
+    // ✅ Verificar autenticación primero
+    if (!user) {
+      setIsLoading(false)
+      setError('Usuario no autenticado')
+      return
+    }
 
+    // ✅ Si no hay restaurante, solo cargar planes públicos
+    if (!profile?.restaurante_id) {
+      console.log(`información del perfil del usuario:`, profile)
+      console.log(`informacion del usuario ${JSON.stringify(user)}`)
+      console.log('No se encontró restaurante_id, cargando planes públicos...')
+      try {
+        setIsLoading(true)
+        setError(null)
+
+        // Usar endpoint para obtener planes públicos
+        const response = await fetch('/api/subscription/plans')
+        if (!response.ok) throw new Error('Error obteniendo planes')
+        
+        const { plans } = await response.json()
+        setAllPlans(plans)
+        
+        // Plan trial por defecto
+        setLimits(plans['trial'])
+        setSubscription(null)
+        setUsage({ sucursales_activas: 0, pedidos_procesados: 0 })
+        
+      } catch (err) {
+        console.error('Error cargando planes:', err)
+        setError('Error al cargar planes disponibles')
+      } finally {
+        setIsLoading(false)
+      }
+      return
+    }
+
+    // ✅ Para usuarios con restaurante, usar endpoint
     try {
       setIsLoading(true)
       setError(null)
 
-      // 1. Obtener suscripción actual
-      const { data: subscriptionData, error: subError } = await supabase
-        .from('suscripciones')
-        .select('*')
-        .eq('restaurante_id', profile.restaurante_id)
-        .eq('status', 'active')
-        .single()
-
-      if (subError && subError.code !== 'PGRST116') { // PGRST116 = No rows found
-        throw subError
-      }
-
-      // Si no tiene suscripción, usar plan trial por defecto
-      const currentPlan = subscriptionData?.plan_type || 'trial'
-      setSubscription(subscriptionData)
-
-      // 2. Obtener límites del plan actual
-      const { data: configData, error: configError } = await supabase
-        .from('configuraciones_sistema')
-        .select('valor')
-        .eq('clave', 'planes_limites')
-        .single()
-
-      if (configError) throw configError
-
-      const planesLimites = configData.valor as Record<string, PlanConfig>
-      setAllPlans(planesLimites)
-      setLimits(planesLimites[currentPlan])
-
-      // 3. Obtener uso actual del mes
-      const currentMonth = new Date().toISOString().slice(0, 7) + '-01' // '2024-01-01'
+      const response = await fetch(`/api/subscription/data?restauranteId=${profile.restaurante_id}`, {
+        method: 'GET',
+        credentials: 'include'
+      })
       
-      const { data: usageData, error: usageError } = await supabase
-        .from('uso_restaurantes')
-        .select('*')
-        .eq('restaurante_id', profile.restaurante_id)
-        .eq('periodo_mes', currentMonth)
-        .single()
-
-      if (usageError && usageError.code !== 'PGRST116') {
-        throw usageError
+      if (!response.ok) {
+        throw new Error('Error obteniendo datos de suscripción')
       }
 
-      // Si no existe registro de uso, crear uno
-      if (!usageData) {
-        const { data: newUsage } = await supabase
-          .from('uso_restaurantes')
-          .insert({
-            restaurante_id: profile.restaurante_id,
-            periodo_mes: currentMonth,
-            sucursales_activas: 0,
-            pedidos_procesados: 0
-          })
-          .select()
-          .single()
-        
-        setUsage(newUsage || { sucursales_activas: 0, pedidos_procesados: 0 })
-      } else {
-        setUsage(usageData)
-      }
+      const data = await response.json()
+      
+      setSubscription(data.subscription)
+      setLimits(data.limits)
+      setUsage(data.usage)
+      setAllPlans(data.allPlans)
 
     } catch (err) {
       console.error('Error cargando datos de suscripción:', err)
@@ -126,10 +116,8 @@ export function useSubscription() {
   }
 
   useEffect(() => {
-    if (profile?.restaurante_id) {
-      loadSubscriptionData()
-    }
-  }, [profile])
+    loadSubscriptionData()
+  }, [profile, user])
 
   // Funciones de utilidad
   const canCreateSucursal = () => {

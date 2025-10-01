@@ -1,4 +1,5 @@
 import  { createClient } from '@/lib/supabase/server'
+import { createServiceRoleClient } from '@/lib/supabase/service-role'
 import { NextRequest, NextResponse } from 'next/server'
 import Stripe from 'stripe'
 
@@ -8,7 +9,7 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
 
 export async function POST(request: NextRequest){
     try {
-        const supabase = await createClient()
+        const supabase = createServiceRoleClient()
         const { data: { user } } = await supabase.auth.getUser()
 
         if (!user) {

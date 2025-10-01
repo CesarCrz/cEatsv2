@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { createServiceRoleClient } from '@/lib/supabase/service-role'
+import { redirect } from 'next/dist/server/api-utils'
 import { NextResponse } from 'next/server'
 
 export async function POST(request: Request) {
@@ -124,7 +125,8 @@ export async function POST(request: Request) {
             success: true, 
             message: 'Registro exitoso. Revisa tu correo para confirmar tu cuenta.',
             user_id: authData.user.id,
-            restaurante_id: restaurante_id
+            restaurante_id: restaurante_id,
+            redirect_to_plans: true
         })
     } catch (error) {
         console.error('Error en registro:', error)

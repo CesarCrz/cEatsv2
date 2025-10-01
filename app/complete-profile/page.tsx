@@ -5,12 +5,15 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { ChefHat, Phone, Calendar, Building, MapPin, User } from "lucide-react"
+import { ChefHat, Phone, Calendar, Building, MapPin, User, Router } from "lucide-react"
 import { CountrySelector } from "@/components/country-selector"
 import { useAuth } from "@/hooks/use-auth"
+import { useRouter } from "next/navigation"
+import { RSC_PREFETCH_SUFFIX } from "next/dist/lib/constants"
 
 export default function CompleteProfilePage() {
   const { user } = useAuth()
+  const router = useRouter()
   const [formData, setFormData] = useState({
     telefono: "",
     countryCode: "+52",
@@ -49,8 +52,15 @@ export default function CompleteProfilePage() {
         body: JSON.stringify(formData),
       })
 
+      const data = await response.json()
+      console.log('Response from server:', data)
       if (response.ok) {
-        window.location.href = '/dashboard'
+
+        if (data?.restaurante_id && data?.redirect_to_plans) {
+          router.push(`/dashboard/restaurantes/${data.restaurante_id}/planes`)
+        } else {
+          router.push('/dashboard')
+        }
       }
     } catch (error) {
       console.error('Error al completar perfil:', error)
