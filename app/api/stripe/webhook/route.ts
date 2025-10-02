@@ -1,4 +1,5 @@
 import { createClient }  from '@/lib/supabase/server'
+import { createServiceRoleClient } from '@/lib/supabase/service-role'
 import { NextRequest, NextResponse } from 'next/server'
 import Stripe from 'stripe'
 
@@ -18,11 +19,25 @@ export async function POST(request: NextRequest) {
             process.env.STRIPE_WEBHOOK_SECRET!
         )
 
-        const supabase = await createClient()
+        const supabase = createServiceRoleClient()
 
         switch (event.type) {
             case 'checkout.session.completed':
                 const session = event.data.object as Stripe.Checkout.Session
+
+                
+                console.log('Checkout session completed:', {
+                    customer: session.customer,
+                    subscription: session.subscription,
+                    metadata: session.metadata
+                })
+
+                // ✅ Validar que tenemos los datos necesarios
+                if (!session.metadata?.restaurante_id) {
+                    console.error('No restaurante_id en metadata')
+                    break
+                }
+
 
                 //crear o actualizar suscripción en la bd
                 await supabase
@@ -62,11 +77,17 @@ export async function POST(request: NextRequest) {
                         }
                     }
 
-                    
-                await supabase
+
+                const { error: updateError } = await supabase
                     .from('suscripciones')
                     .update(updateData)
                     .eq('stripe_subscription_id', subscription.id)
+                
+                if (updateError) {
+                    console.error('Error updating subscription in DB:', updateError)
+                } else {
+                    console.log(`Subscription ${subscription.id} updated in DB`)
+                }
                 break
         }
 

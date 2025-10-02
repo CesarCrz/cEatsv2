@@ -7,10 +7,12 @@ import { createServiceRoleClient } from '@/lib/supabase/service-role'
 export async function POST(request: Request) {
     try {
         const { email, password } = await request.json()
+        console.log(`credenciales recibidas: ${email}, ${password ? '****' : 'no password'}`)
         const supabaseAdmin = createServiceRoleClient()
+        const supabase = await createClient()
 
         // Autenticar usuario
-        const { data: authData, error: authError } = await supabaseAdmin.auth.signInWithPassword({
+        const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
             email,
             password,
         })
@@ -33,10 +35,12 @@ export async function POST(request: Request) {
         // Obtener perfil del usuario
         const { data: profile, error: profileError } = await supabaseAdmin
             .from('user_profiles')
-            .select('id, nombre, apellidos, role, is_active, verification_code')
+            .select('id, nombre, apellidos, role, is_active, verification_code, restaurante_id, is_first_login')
             .eq('id', authData.user.id)
             .single()
 
+        console.log(`ID A BUSCAR: ${authData.user.id}`)
+        console.log(`ERROR: ${JSON.stringify(profileError)}`)
         if (profileError || !profile) {
             return NextResponse.json({ error: 'Perfil de usuario no encontrado' }, { status: 404 })
         }
@@ -56,6 +60,50 @@ export async function POST(request: Request) {
             })
         }
 
+        if (profile.role === 'admin' && profile.restaurante_id) {
+            // vamos a verificar si tiene alguna suscripción activa 
+            const { data: subscription, error: subError } = await supabaseAdmin
+                .from('suscripciones')
+                .select('id, status, created_at, plan_type')
+                .eq('restaurante_id', profile.restaurante_id)
+                .eq('status', 'active')
+                .single()
+            
+            if (subError && subError.code !== 'PGRST116') { // PGRST116 = no encontrado
+                console.error('Error al verificar suscripción:', subError)
+                return NextResponse.json({ error: 'Error al verificar suscripción' }, { status: 500 })
+            }
+
+            const hasActiveSubscription = !!subscription
+            let needsSubscription = !hasActiveSubscription
+
+            if (subscription?.plan_type === 'trial') {
+                const thirtyDaysAgo = new Date(Date.now() - 30*24*60*60*1000)
+                if (new Date(subscription.created_at) < thirtyDaysAgo) {
+                    needsSubscription = true
+                }
+            }
+
+            if (needsSubscription) {
+                //vamos a marcar como first_login false
+                const { error: updateError } = await supabaseAdmin 
+                    .from('user_profiles')
+                    .update({ is_first_login: false})
+                    .eq('id', profile.id)
+
+                if (updateError) {
+                    console.error(`Error updating is_first_login for user ${profile.id}:`, updateError)
+                    // Continuar normalmente, no es crítico
+                }
+                    
+                return NextResponse.json({
+                    success: true,
+                    redirect: `/dashboard/restaurantes/${profile.restaurante_id}/planes`,
+                    message: 'Selecciona un plan para continuar'
+                })
+            }
+        }
+ 
         // Para usuarios de email/password, generar y enviar código de 2FA
         const verificationCode = generateVerificationCode()
         const expirationTimestamp = Date.now() + (10 * 60 * 1000) // 10 minutos en timestamp
@@ -66,6 +114,7 @@ export async function POST(request: Request) {
             .update({
                 verification_code: parseInt(verificationCode),
                 verification_code_expires_at: expirationTimestamp,
+                is_first_login: false,
                 updated_at: new Date().toISOString()
             })
             .eq('id', authData.user.id)

@@ -62,7 +62,7 @@ export async function POST(request: Request) {
       .from('restaurantes')
       .insert({
         nombre: restauranteNombre,
-        nombre_contacto_legal: user.app_metadata?.full_name || nombreContactoLegal,
+        nombre_contacto_legal: user.user_metadata?.full_name || nombreContactoLegal,
         email_contacto_legal: emailContactoLegal || user.email,
         telefono_contacto_legal: telefonoContactoLegal || null,
         direccion_fiscal: direccionFiscal,
@@ -74,6 +74,7 @@ export async function POST(request: Request) {
       })
       .select('id')
       .single()
+      console.log(`nombre del propietario: ${nombreContactoLegal}, email: ${user.email}`)
 
     if (restauranteError) {
       console.error('Error creating restaurant:', restauranteError)
@@ -88,7 +89,7 @@ export async function POST(request: Request) {
         country_code: countryCode,
         fecha_nacimiento: fechaNacimiento,
         restaurante_id: restaurante.id,
-        is_first_login: false, // Marcar que ya completó el primer login
+        //is_first_login: true, // Marcar que ya completó el primer login
         updated_at: new Date().toISOString()
       })
       .eq('id', user.id)

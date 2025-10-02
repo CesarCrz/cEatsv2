@@ -79,7 +79,11 @@ export async function GET(request: NextRequest) {
         subscription: subscriptionData,
         limits: planesLimites[currentPlan],
         usage: usageData,
-        allPlans: planesLimites
+        allPlans: planesLimites,
+        hasActiveSubscription: !!subscriptionData,
+        needsSubscription: !subscriptionData || (
+          subscriptionData.plan_type === 'trial' && new Date(subscriptionData.created_at).getTime() < new Date(Date.now() - 30*24*60*60*1000).getTime()
+        )
     }
     
     console.log(`informacion de suscripción para restauranteId ${restauranteId}:`, data)

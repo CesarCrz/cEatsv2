@@ -29,9 +29,12 @@ export async function GET() {
       return NextResponse.json({ error: 'Error obteniendo perfil' }, { status: 500 })
     }
 
+    console.log(`restaurante_id: ${profile?.restaurante_id}`)
+
     return NextResponse.json({
       user: {
         id: user.id,
+        restaurante_id: profile.restaurante_id,
         email: user.email,
         user_metadata: user.user_metadata,
         app_metadata: user.app_metadata

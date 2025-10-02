@@ -68,17 +68,28 @@ export function useAuth() {
         setError(null)
         
         try {
-            const supabase = createClient()
-            const { data, error } = await supabase.auth.signInWithPassword({
-                email,
-                password,
+            const response = await fetch('api/auth/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email, password})
             })
 
-            console.log('Response from server:', data, error)
-            
-            if (error) throw error
-            
-            // Los datos se cargarán automáticamente por el onAuthStateChange
+            const data = await response.json()
+
+            if (!response.ok){
+                throw new Error(data.error || 'Error en el login')
+            }
+
+            if (data.success) { 
+                await loadUserData()
+
+                if (data.redirect === '/dashboard') {
+                    router.push('/dashboard')
+                } else if (data.redirect === '/verify-email') {
+                    router.push('/verify-email')
+                }
+            }
+
             return data
         } catch (err: any) {
             setError(err.message)

@@ -76,6 +76,7 @@ export default function PlanesPage() {
   }, [allPlans])
 
   const handleSubscribe = async (planId: string) => {
+    console.log(`Iniciando suscripción al plan: ${planId}`)
     if (!profile?.restaurante_id) {
       console.error('No se encontró restaurante_id')
       return
@@ -90,7 +91,7 @@ export default function PlanesPage() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          planId,
+          planType: planId,
           restauranteId: profile.restaurante_id
         }),
       })
@@ -145,12 +146,20 @@ export default function PlanesPage() {
   }
 
   const getCurrentPlan = () => {
-    return subscription?.plan_type || 'trial'
+    const currentPlan = subscription?.plan_type
+    console.log(`Plan actual: ${currentPlan}`)
+    return currentPlan || null
   }
 
   const isCurrentPlan = (planId: string) => {
-    return getCurrentPlan() === planId
+    const current = getCurrentPlan()
+    if (!current) return false
+    return current === planId
   }
+
+  const needsToSelectPlan = () => {
+    return !subscription || !subscription.plan_type
+   }
 
   if (loadingPlans || isLoading) {
     return (
@@ -213,7 +222,7 @@ export default function PlanesPage() {
           </div>
 
           {/* Current Plan Info */}
-          {subscription && (
+          {subscription && subscription.plan_type ? (
             <div className="mb-8">
               <Card className="glass border-primary/20">
                 <CardHeader>
@@ -264,6 +273,24 @@ export default function PlanesPage() {
                       )}
                     </div>
                   </div>
+                </CardContent>
+              </Card>
+            </div>
+          ) : (
+            // ✅ Mostrar cuando no hay plan seleccionado
+            <div className="mb-8">
+              <Card className="glass border-orange-200 bg-orange-50/50">
+                <CardHeader>
+                  <CardTitle className="flex items-center space-x-2 text-orange-800">
+                    <AlertTriangle className="w-5 h-5" />
+                    <span>Selecciona tu Plan</span>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-orange-700">
+                    Para comenzar a usar cEats, necesitas seleccionar un plan. 
+                    Puedes comenzar con nuestro plan gratuito y actualizar cuando lo necesites.
+                  </p>
                 </CardContent>
               </Card>
             </div>
@@ -385,7 +412,7 @@ export default function PlanesPage() {
                           plan.popular || plan.recommended
                             ? 'bg-gradient-to-r from-primary to-secondary hover:from-primary/90 hover:to-secondary/90'
                             : ''
-                        }`}
+                        } ${needsToSelectPlan() ? 'ring-2 ring-primary ring-opacity-30' : ''}`}
                       >
                         {checkoutLoading === plan.id ? (
                           <>
@@ -394,8 +421,9 @@ export default function PlanesPage() {
                           </>
                         ) : (
                           <>
-                            {plan.price === 0 ? 'Comenzar Gratis' : 
-                             getCurrentPlan() === 'trial' ? 'Actualizar Plan' : 'Cambiar Plan'}
+                            {needsToSelectPlan() ? 'Seleccionar Plan' : 
+                             plan.price === 0 ? 'Cambiar a Gratuito' : 
+                             'Cambiar Plan'}
                           </>
                         )}
                       </Button>

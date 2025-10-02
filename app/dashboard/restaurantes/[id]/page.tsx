@@ -399,7 +399,7 @@ export default function RestauranteDashboard() {
                                         </Button>
                                     </DropdownMenuTrigger>
                                     <DropdownMenuContent align="end">
-                                        <DropdownMenuItem onClick={() => router.push('/configuracion')}>
+                                        <DropdownMenuItem onClick={() => router.push(`${restauranteId}/configuracion`)}>
                                             <Settings className="mr-2 h-4 w-4" />
                                             Configuración
                                         </DropdownMenuItem>

@@ -9,16 +9,35 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
 
 export async function POST(request: NextRequest) {
   try {
+    // ✅ CRÍTICO: Agregar autenticación del usuario
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+
+    if (!user) {
+      return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
+    }
+
     const { restauranteId } = await request.json()
 
     if (!restauranteId) {
       return NextResponse.json({ error: 'Restaurant ID es requerido' }, { status: 400 })
     }
 
-    const supabase = createServiceRoleClient()
+    // ✅ Verificar que el usuario tiene acceso a ese restaurante
+    const supabaseAdmin = createServiceRoleClient()
+    
+    const { data: userProfile } = await supabaseAdmin
+      .from('user_profiles')
+      .select('restaurante_id')
+      .eq('id', user.id)
+      .single()
 
-    // Obtener la suscripción activa para conseguir el customer_id de Stripe
-    const { data: subscription, error: subscriptionError } = await supabase
+    if (userProfile?.restaurante_id !== restauranteId) {
+      return NextResponse.json({ error: 'No tienes acceso a este restaurante' }, { status: 403 })
+    }
+
+    // ✅ Resto del código está bien...
+    const { data: subscription, error: subscriptionError } = await supabaseAdmin
       .from('suscripciones')
       .select('stripe_customer_id')
       .eq('restaurante_id', restauranteId)
@@ -31,10 +50,9 @@ export async function POST(request: NextRequest) {
       }, { status: 404 })
     }
 
-    // Crear sesión del portal del cliente de Stripe
     const portalSession = await stripe.billingPortal.sessions.create({
       customer: subscription.stripe_customer_id,
-      return_url: `${process.env.NEXT_PUBLIC_BASE_URL}/planes`,
+      return_url: `${process.env.NEXT_PUBLIC_SITE_URL}/dashboard/restaurantes/${restauranteId}/planes`,
     })
 
     return NextResponse.json({ url: portalSession.url })
