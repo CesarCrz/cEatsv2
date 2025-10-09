@@ -19,7 +19,15 @@ const poppins = Poppins({
 export const metadata = {
   title: "cEats v2 - Sistema de Gestión de Restaurantes",
   description: "Plataforma profesional para la gestión integral de restaurantes",
-    generator: 'v0.app'
+  generator: 'crzp',
+  icons: {
+    icon: [
+      { url: '/favicon.ico' },
+      { url: '/favicon.ico', sizes: '32x32', type: 'image/x-icon' },
+    ],
+    shortcut: '/favicon.ico',
+    apple: '/favicon.ico',
+  },
 }
 
 export default function RootLayout({
@@ -29,9 +37,6 @@ export default function RootLayout({
 }) {
   return (
     <html lang="es" className={`${inter.variable} ${poppins.variable} antialiased`}>
-      <head>
-        <link rel="icon" href="/favicon.ico" />
-      </head>
       <body className="min-h-screen bg-gradient-to-br from-background via-muted/30 to-background">
         {children}
         <Toaster />
