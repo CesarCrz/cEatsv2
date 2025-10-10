@@ -3,11 +3,12 @@ import { NextResponse } from "next/server";
 
 export async function GET(request: Request) {
   try {
-    const { searchParams, origin } = new URL(request.url)
+    const { searchParams } = new URL(request.url)
     const code = searchParams.get('code')
+    const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || 'https://www.ceats.app'
     
     if (!code) {
-      return NextResponse.redirect(`${origin}/login?error=no_code`)
+      return NextResponse.redirect(`${baseUrl}/login?error=no_code`)
     }
     
     const supabase = await createClient()
@@ -16,7 +17,7 @@ export async function GET(request: Request) {
     
     if (error || !data.user) {
       console.error('Error exchanging code:', error)
-      return NextResponse.redirect(`${origin}/login?error=auth_error`)
+      return NextResponse.redirect(`${baseUrl}/login?error=auth_error`)
     }
     
     // Verificar si el usuario ya existe en user_profiles
@@ -46,23 +47,24 @@ export async function GET(request: Request) {
       
       if (createError) {
         console.error('Error creating profile:', createError)
-        return NextResponse.redirect(`${origin}/login?error=profile_creation_error`)
+        return NextResponse.redirect(`${baseUrl}/login?error=profile_creation_error`)
       }
       
       // Redirigir a completar perfil
-      return NextResponse.redirect(`${origin}/complete-profile`)
+      return NextResponse.redirect(`${baseUrl}/complete-profile`)
     } 
     
     // Si existe pero no tiene restaurante o es primer login, completar perfil
     if (!existingProfile.restaurante_id || existingProfile.is_first_login) {
-      return NextResponse.redirect(`${origin}/complete-profile`)
+      return NextResponse.redirect(`${baseUrl}/complete-profile`)
     }
     
     // Si ya tiene perfil completo, ir al dashboard
-    return NextResponse.redirect(`${origin}/dashboard`)
+    return NextResponse.redirect(`${baseUrl}/dashboard`)
     
   } catch (error) {
+    const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || 'https://www.ceats.app'
     console.error('Error en callback:', error)
-    return NextResponse.redirect(`${origin}/login?error=callback_error`)
+    return NextResponse.redirect(`${baseUrl}/login?error=callback_error`)
   }
 }

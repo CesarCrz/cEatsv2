@@ -1,8 +1,8 @@
 import { createServerClient, type CookieOptions } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
-// Caché en memoria para evitar múltiples llamadas al API
-const userCache = new Map<string, { data: any; timestamp: number }>()
+// Caché simple compatible con Edge Runtime
+const userCache: Record<string, { data: any; timestamp: number }> = {}
 const CACHE_DURATION = 30000 // 30 segundos
 
 export async function middleware(request: NextRequest) {
@@ -71,88 +71,61 @@ export async function middleware(request: NextRequest) {
   let hasExpiredCode = false
   let userProfile = null
 
-  console.log('Usuario autenticado con Google:', isGoogleAuth)
-
-  if (!isGoogleAuth) {
-    // Lógica para usuarios de email/password (sin cambios)
-    try {
-      const cacheKey = user.id
-      const cachedData = userCache.get(cacheKey)
-      const now = Date.now()
+  // Obtener el perfil del usuario con caché
+  try {
+    const cacheKey = user.id
+    const cachedData = userCache[cacheKey]
+    const now = Date.now()
+    
+    // Verificar si hay datos en caché válidos
+    if (cachedData && (now - cachedData.timestamp) < CACHE_DURATION) {
+      userProfile = cachedData.data
       
-      if (cachedData && (now - cachedData.timestamp) < CACHE_DURATION) {
-        const userStatus = cachedData.data
-        isUserVerified = userStatus.isVerified
-        hasExpiredCode = userStatus.hasExpiredCode
+      // Para usuarios no-Google, usar datos del caché
+      if (!isGoogleAuth) {
+        isUserVerified = cachedData.data.isVerified
+        hasExpiredCode = cachedData.data.hasExpiredCode
+      }
+    } else {
+      // Si no hay caché o expiró, hacer fetch
+      const apiResponse = await fetch(`${request.nextUrl.origin}/api/auth/check-user-status`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ userId: user.id }),
+      })
+
+      if (apiResponse.ok) {
+        const userStatus = await apiResponse.json()
         userProfile = userStatus
-      } else {
-        const apiResponse = await fetch(`${request.nextUrl.origin}/api/auth/check-user-status`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ userId: user.id }),
-        })
-
-        if (apiResponse.ok) {
-          const userStatus = await apiResponse.json()
-
-          userProfile = userStatus
-          
-          userCache.set(cacheKey, {
-            data: userStatus,
-            timestamp: now
-          })
-          
+        
+        // Guardar en caché
+        userCache[cacheKey] = {
+          data: userStatus,
+          timestamp: now
+        }
+        
+        // Para usuarios no-Google, verificar estado
+        if (!isGoogleAuth) {
           isUserVerified = userStatus.isVerified
           hasExpiredCode = userStatus.hasExpiredCode
-        } else {
+        }
+      } else {
+        if (!isGoogleAuth) {
           isUserVerified = false
         }
       }
-    } catch (error) {
-      isUserVerified = false
     }
-  } else {
-    // Lógica para usuarios de Google
-    try {
-      const cacheKey = `google_${user.id}`
-      const cachedData = userCache.get(cacheKey)
-      const now = Date.now()
-      
-      if (cachedData && (now - cachedData.timestamp) < CACHE_DURATION) {
-        userProfile = cachedData.data
-      } else {
-        // obtenemos el perfil desde el endpoint privado
-        const response = await fetch(`${request.nextUrl.origin}/api/auth/check-user-status`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ userId: user.id })
-        })
-
-        if (response.ok){
-          const userStatus = await response.json()
-
-          userProfile = userStatus
-
-          //guardamos en caché
-          userCache.set(cacheKey,{
-            data: userStatus,
-            timestamp: now
-          })
-        } else { 
-          console.error('Error obteniendo perfil de Google user: ', response.statusText)
-          userProfile = null
-        }
-      }
-    } catch (error) {
-      console.error('Error obteniendo perfil de Google user:', error)
-      userProfile = null
+  } catch (error) {
+    if (!isGoogleAuth) {
+      isUserVerified = false
     }
   }
 
   if (hasExpiredCode) {
-    userCache.delete(user.id)
+    // Limpiar caché del usuario
+    delete userCache[user.id]
     
     try {
       await supabase.auth.signOut()
@@ -190,7 +163,6 @@ export async function middleware(request: NextRequest) {
     
     // Si es usuario de Google y es su primer login o no tiene restaurante, completar perfil
     if (isGoogleAuth && (is_first_login || !restaurante_id)) {
-      console.log(`is first login de Google user: ${is_first_login}, restaurante_id: ${restaurante_id}`)
       const redirectUrl = new URL('/complete-profile', request.url)
       return NextResponse.redirect(redirectUrl)
     }
@@ -207,15 +179,12 @@ export async function middleware(request: NextRequest) {
     } else {
       // Caso fallback: perfil incompleto
       const redirectUrl = new URL('/complete-profile', request.url)
-      console.log('Perfil incompleto, redirigiendo a completar perfil')
       return NextResponse.redirect(redirectUrl)
     }
   }
   
   // Si no hay perfil y es usuario verificado, ir a completar perfil
   if (isUserVerified && !userProfile && path !== '/complete-profile') {
-    console.log(`el usuario esta verificado?: ${isUserVerified} el usuario tiene perfil?: ${userProfile}`)
-    console.log('Usuario verificado sin perfil, redirigiendo a completar perfil')
     const redirectUrl = new URL('/complete-profile', request.url)
     return NextResponse.redirect(redirectUrl)
   }

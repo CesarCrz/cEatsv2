@@ -54,13 +54,20 @@ export default function CompleteProfilePage() {
 
       const data = await response.json()
       console.log('Response from server:', data)
+      
       if (response.ok) {
-
         if (data?.restaurante_id && data?.redirect_to_plans) {
-          router.push(`/dashboard/restaurantes/${data.restaurante_id}/planes`)
+          const redirectUrl = `/planes`
+          console.log('Attempting to redirect to:', redirectUrl)
+          
+          // Usar window.location para forzar un refresh completo
+          window.location.href = redirectUrl
         } else {
-          router.push('/dashboard')
+          console.log('Redirecting to dashboard')
+          window.location.href = '/dashboard'
         }
+      } else {
+        console.error('Server responded with error:', data)
       }
     } catch (error) {
       console.error('Error al completar perfil:', error)

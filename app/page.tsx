@@ -1,10 +1,15 @@
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { ChefHat, ArrowRight, Users, Building, TrendingUp, Shield } from "lucide-react"
+import { OAuthCallbackHandler } from "@/components/oauth-callback-handler"
+import { Suspense } from "react"
 
 export default function HomePage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-muted/30 to-background relative overflow-hidden">
+      <Suspense fallback={null}>
+        <OAuthCallbackHandler />
+      </Suspense>
       {/* Background decorative elements */}
       <div className="absolute inset-0 overflow-hidden">
         <div className="absolute -top-40 -right-40 w-80 h-80 bg-primary/10 rounded-full blur-3xl animate-float"></div>
