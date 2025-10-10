@@ -5646,7 +5646,7 @@ export default function SignupPage() {
 
 ---
 
-_**User (2025-09-26 20:55Z)**_
+_**User (2025-09-26 20:57Z)**_
 
 me parece bien el flujo propuesto, de hecho ya hay avance en eso, ahora anota eso nuevo en roadmap.md damelo como proximos pasos para recordarme que hay que hacer en el siguiente dia de trabajo por fa
 
@@ -5678,7 +5678,227 @@ _**Assistant (copilot/claude-sonnet-4)**_
 
 ### **📊 Base de Datos y Pedidos**
 - [x] Base de datos de pedidos completa (tablas `pedidos` y `pedido_items`)
-- [x] Vista `pedidos_completos` optim
+- [x] Vista `pedidos_completos` optimizada para queries
+- [x] Tipos TypeScript centralizados (`@/types/pedidos`)
+- [x] Tabla `invitaciones_sucursales` para sistema de invitaciones
+
+### **🎛️ Dashboards Funcionales**
+- [x] Dashboard de restaurante completamente funcional
+- [x] Dashboard de sucursal completamente funcional  
+- [x] Modal de detalles de pedido con toda la funcionalidad
+- [x] Sistema de estados de pedidos (pendiente → confirmado → preparando → listo → entregado)
+- [x] Analytics en tiempo real (pedidos hoy, ingresos, pendientes, etc.)
+- [x] Quick actions para cambio de estados de pedidos
+- [x] Filtros por estado en dashboard de sucursal
+- [x] Sidebars adaptativos por rol (AdminSidebar/SucursalSidebar)
+- [x] **NUEVO:** Redirección automática por rol desde middleware
+- [x] **NUEVO:** Gestión de sucursales con datos reales desde BD
+
+### **📱 Sistema de Tiempo Real**
+- [x] Hook `usePedidosRealtime` completo con audio, notificaciones y tiempo real
+- [x] Sistema de audio inteligente (loop hasta aceptar pedido)
+- [x] Notificaciones del browser para nuevos pedidos
+- [x] Suscripciones Realtime por sucursal con filtros automáticos
+- [x] Indicadores visuales de conexión en tiempo real
+- [x] Contador de pedidos nuevos con badges interactivos
+- [x] Control de audio (pausa/reanuda) conectado con OrderDetailModal
+
+### **📧 Sistema de Invitaciones Profesional**
+- [x] Sistema de emails configurado (`lib/email`)
+- [x] Plantilla de email profesional con branding consistente
+- [x] Endpoint `/api/invitar-sucursal` con tokens únicos
+- [x] Página de aceptación `/aceptar-invitacion/[token]`
+- [x] Modal de invitación integrado en página de sucursales
+- [x] Validación de tokens y creación automática de cuentas
+
+### **📄 Páginas Adaptadas por Rol**
+- [x] Página de historial con datos reales (hook usePedidos)
+- [x] Página de reportes con métricas dinámicas (hook useReportes)
+- [x] Página de configuración con información personal y roles
+- [x] Filtrado automático: Admin ve todo, Sucursal solo sus datos
+- [x] Componente UserAvatar con foto de Google/iniciales
+- [x] **NUEVO:** Páginas anidadas específicas por contexto de restaurante/sucursal
+
+### **🔧 Gestión y Administración**
+- [x] Gestión completa de items de pedidos con categorías y notas
+- [x] Soporte completo para tipos de entrega (domicilio, recoger, mesa)
+- [x] Integración con WhatsApp Business (estructura preparada)
+- [x] Sistema de verificación de acceso por restaurante/sucursal
+- [x] Páginas /sucursales y /usuarios protegidas solo para admin
+- [x] **NUEVO:** Arquitectura de rutas anidadas implementada
+- [x] **NUEVO:** Gestión real de sucursales con datos desde BD
+
+## 🚧 Próximos Pasos Inmediatos
+
+### 🎯 **PRIORIDADES CRÍTICAS - PRÓXIMA SESIÓN DE TRABAJO:**
+
+### **A. 💳 SISTEMA DE PLANES Y SUSCRIPCIONES - SELECCIÓN ANTES DE REGISTRO**
+**Prioridad: CRÍTICA** - **IMPLEMENTACIÓN INMEDIATA**
+
+#### A.1. **Flujo de Selección de Plan Pre-Registro**
+**📋 Tareas para mañana:**
+
+- [ ] **Crear página `/planes-signup/page.tsx`**
+  - Layout centrado con grid de planes
+  - Botones "Continuar con [Plan]" en lugar de "Empezar"
+  - Descripción clara: "Elige tu plan antes de registrarte"
+  - Diseño consistente con branding actual
+
+- [ ] **Actualizar botón "Registrarse" en landing/login**
+  ```tsx
+  // Cambiar de:
+  router.push('/signup')
+  // A:
+  router.push('/planes-signup')
+  ```
+
+- [ ] **Modificar página `/signup/page.tsx`**
+  - Detectar plan desde URL params: `?plan=basico`
+  - Mostrar card del plan seleccionado (nombre, precio, "Cambiar plan")
+  - Validar que siempre haya plan seleccionado
+  - Redirigir a `/planes-signup` si no hay plan
+  - Incluir `selectedPlan` en datos del registro
+
+#### A.2. **Definir Estructura de Planes**
+**📋 Datos para configurar:**
+
+```typescript
+const PLANES = [
+  {
+    id: 'basico',
+    name: 'Básico',
+    price: 29.99,
+    maxSucursales: 3,
+    maxPedidos: 500,
+    features: [
+      'Hasta 3 sucursales',
+      '500 pedidos/mes',
+      'Dashboard básico',
+      'Tiempo real',
+      'Soporte email'
+    ]
+  },
+  {
+    id: 'pro',
+    name: 'Profesional', 
+    price: 79.99,
+    maxSucursales: 10,
+    maxPedidos: 2000,
+    popular: true,
+    features: [
+      'Hasta 10 sucursales',
+      '2,000 pedidos/mes', 
+      'Analytics avanzados',
+      'Reportes PDF',
+      'Soporte prioritario'
+    ]
+  },
+  {
+    id: 'enterprise',
+    name: 'Enterprise',
+    price: 199.99,
+    maxSucursales: 'unlimited',
+    maxPedidos: 'unlimited',
+    features: [
+      'Sucursales ilimitadas',
+      'Pedidos ilimitados',
+      'API personalizada',
+      'Integraciones custom',
+      'Soporte 24/7'
+    ]
+  }
+]
+```
+
+#### A.3. **Actualizar Base de Datos**
+**📋 SQL para ejecutar:**
+
+```sql
+-- Agregar campos de plan a user_profiles
+ALTER TABLE user_profiles ADD COLUMN plan_id TEXT DEFAULT 'basico';
+ALTER TABLE user_profiles ADD COLUMN plan_status TEXT DEFAULT 'trial'; -- trial, active, cancelled
+ALTER TABLE user_profiles ADD COLUMN plan_expires_at TIMESTAMP;
+ALTER TABLE user_profiles ADD COLUMN stripe_customer_id TEXT;
+ALTER TABLE user_profiles ADD COLUMN stripe_subscription_id TEXT;
+```
+
+#### A.4. **Hook de Suscripción Básico**
+**📋 Crear archivo `/hooks/use-subscription.tsx`:**
+
+```typescript
+export function useSubscription() {
+  const { profile } = useAuth()
+  
+  const canCreateSucursal = () => {
+    // Lógica para verificar límites de plan
+    return true // Implementar lógica real
+  }
+  
+  return {
+    currentPlan: profile?.plan_id || 'basico',
+    planStatus: profile?.plan_status || 'trial',
+    canCreateSucursal,
+    // ... más funciones
+  }
+}
+```
+
+### **B. 🏗️ COMPLETAR PÁGINAS ANIDADAS FALTANTES**
+**Prioridad: ALTA** - **TAREAS RÁPIDAS**
+
+#### B.1. **Crear páginas faltantes de administrador**
+- [ ] `/app/dashboard/restaurantes/[id]/usuarios/page.tsx`
+  - Lista de usuarios del restaurante
+  - Botón "Invitar Usuario" (reutilizar lógica de invitaciones)
+  - Estados: activo, invitado, deshabilitado
+
+- [ ] `/app/dashboard/restaurantes/[id]/reportes/page.tsx`
+  - Mover lógica de `/reportes/page.tsx` existente
+  - Filtrar por restaurante específico
+  - Mantener todos los gráficos y métricas
+
+- [ ] `/app/dashboard/restaurantes/[id]/configuracion/page.tsx`
+  - Configuración específica del restaurante
+  - Información del restaurante, horarios, etc.
+  - Diferente de `/configuracion` global
+
+#### B.2. **Crear páginas de sucursal**
+- [ ] `/app/dashboard/sucursales/[id]/reportes/page.tsx`
+  - Reportes solo de la sucursal específica
+  - Mismo diseño que reportes de restaurante
+  - Datos filtrados por sucursal
+
+- [ ] `/app/dashboard/sucursales/[id]/configuracion/page.tsx`
+  - Configuración específica de la sucursal
+  - Horarios, estado operativo, información de contacto
+
+#### B.3. **Actualizar navegación en sidebars**
+- [ ] **AdminSidebar:** Verificar que todas las rutas apunten a `/dashboard/restaurantes/[id]/*`
+- [ ] **SucursalSidebar:** Verificar que todas las rutas apunten a `/dashboard/sucursales/[id]/*`
+
+### **C. 🐛 FIXES MENORES IDENTIFICADOS**
+**Prioridad: MEDIA** - **TAREAS DE LIMPIEZA**
+
+- [ ] **Eliminar páginas globales obsoletas** (si ya no se usan):
+  - `/app/sucursales/page.tsx` → Solo para admins ahora
+  - `/app/usuarios/page.tsx` → Solo para admins ahora
+  - `/app/historial/page.tsx` → Solo para admins ahora
+  - `/app/reportes/page.tsx` → Solo para admins ahora
+
+- [ ] **Limpiar console.logs** excesivos en middleware
+- [ ] **Optimizar caché** del middleware (aumentar duración a 5 minutos para producción)
+
+### **D. 📝 DOCUMENTACIÓN**
+- [ ] **Actualizar README.md** con nueva arquitectura de rutas
+- [ ] **Documentar flujo de planes** en comentarios del código
+
+---
+
+## 🎯 **OBJETIVOS DE LA PRÓXIMA SESIÓN:**
+
+### **🏁 METAS PARA COMPLETAR:**
+1. ✅ **Flujo de selección de planes** antes del registro funcionando
+2. ✅ **Al menos 2
 
 ---
 

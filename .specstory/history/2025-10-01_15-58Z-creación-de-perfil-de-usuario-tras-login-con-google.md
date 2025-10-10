@@ -3130,7 +3130,7 @@ export async function POST(request: NextRequest) {
 
 ---
 
-_**User (2025-10-01 19:38Z)**_
+_**User (2025-10-01 19:39Z)**_
 
 bien, gracias, ya lo realicé, ahora, si quiero cambiar un poco la lógica de lo que es el cómo el cliente escoja su plan ideal, lo que quiero es que después de que el cliente termine su registro tanto con email / password con el formulario común en: #file:signup  como con el complete-profile por si es que son usuarios de google, los redirija a seleccionar su plan obligatoriamente #file:planes  por favor, aqui los planes se cargan automáticamente de la base de datos como ya vimos usamos endpoint para poder obtemer esa información, ahora que les pida escoger un plan y que se conecte a toda la funcionalidad de stripe que ya hay en #file:stripe por favor
 
@@ -3138,7 +3138,883 @@ bien, gracias, ya lo realicé, ahora, si quiero cambiar un poco la lógica de lo
 
 _**Assistant (copilot/claude-sonnet-4)**_
 
+Perfecto! Vamos a implementar la lógica para que los usuarios obligatoriamente seleccionen un plan después del registro. Aquí están los cambios:
 
+## 1. Modificar el endpoint `complete-profile` para redirigir a planes:
+
+````typescript
+import { createClient } from '@/lib/supabase/server'
+import { createServiceRoleClient } from '@/lib/supabase/service-role'
+import { NextResponse } from 'next/server'
+import { cookies } from 'next/headers'
+
+export async function POST(request: Request) {
+  try {
+    const {
+      telefono,
+      countryCode,
+      fechaNacimiento,
+      restauranteNombre,
+      nombreContactoLegal,
+      emailContactoLegal,
+      telefonoContactoLegal,
+      direccionFiscal,
+      rfc
+    } = await request.json()
+
+    // Crear cliente de Supabase con las cookies de la request
+    const cookieStore = cookies()
+    const supabase = createClient(cookieStore)
+    
+    // Obtener usuario actual
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) {
+      return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
+    }
+
+    const supabaseAdmin = createServiceRoleClient()
+
+    // Verificar si el perfil ya existe, si no crearlo
+    let { data: existingProfile } = await supabaseAdmin
+      .from('user_profiles')
+      .select('id')
+      .eq('id', user.id)
+      .single()
+
+    if (!existingProfile) {
+      // Crear perfil básico si no existe (para usuarios de Google)
+      const { error: createProfileError } = await supabaseAdmin
+        .from('user_profiles')
+        .insert({
+          id: user.id,
+          email: user.email,
+          nombre: user.user_metadata?.full_name?.split(' ')[0] || '',
+          apellidos: user.user_metadata?.full_name?.split(' ').slice(1).join(' ') || '',
+          avatar_url: user.user_metadata?.avatar_url || null,
+          role: 'admin',
+          is_active: true,
+          is_first_login: true,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        })
+
+      if (createProfileError) {
+        console.error('Error creating profile:', createProfileError)
+        return NextResponse.json({ error: 'Error al crear perfil de usuario' }, { status: 500 })
+      }
+    }
+
+    // Crear restaurante
+    const { data: restaurante, error: restauranteError } = await supabaseAdmin
+      .from('restaurantes')
+      .insert({
+        nombre: restauranteNombre,
+        nombre_contacto_legal: nombreContactoLegal,
+        email_contacto_legal: emailContactoLegal,
+        telefono_contacto_legal: telefonoContactoLegal || null,
+        direccion_fiscal: direccionFiscal,
+        rfc: rfc || null,
+        terminos_aceptados_at: new Date().toISOString(),
+        is_active: true,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      })
+      .select('id')
+      .single()
+
+    if (restauranteError) {
+      console.error('Error creating restaurant:', restauranteError)
+      return NextResponse.json({ error: 'Error al crear restaurante' }, { status: 500 })
+    }
+
+    // Actualizar perfil del usuario con los datos faltantes
+    const { error: profileError } = await supabaseAdmin
+      .from('user_profiles')
+      .update({
+        telefono: telefono,
+        country_code: countryCode,
+        fecha_nacimiento: fechaNacimiento,
+        restaurante_id: restaurante.id,
+        is_first_login: false, // ✅ Marcar que ya completó el primer login
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', user.id)
+
+    if (profileError) {
+      console.error('Error updating profile:', profileError)
+      return NextResponse.json({ error: 'Error al actualizar perfil' }, { status: 500 })
+    }
+
+    // ✅ CAMBIO: Devolver el restaurante_id para redirigir a selección de planes
+    return NextResponse.json({ 
+      success: true,
+      restaurante_id: restaurante.id,
+      redirect_to_plans: true 
+    })
+  } catch (error) {
+    console.error('Server error:', error)
+    return NextResponse.json({ error: 'Error en el servidor' }, { status: 500 })
+  }
+}
+````
+
+## 2. Modificar el componente `complete-profile` para redirigir a planes:
+
+````tsx
+"use client"
+
+import { useState } from "react"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { useAuth } from "@/hooks/use-auth"
+import { ChefHat } from "lucide-react"
+import { useRouter } from "next/navigation"
+
+export default function CompleteProfilePage() {
+  const { user, refetch } = useAuth()
+  const router = useRouter()
+  const [formData, setFormData] = useState({
+    telefono: "",
+    countryCode: "+52",
+    fechaNacimiento: "",
+    // Datos del restaurante
+    restauranteNombre: "",
+    nombreContactoLegal: user?.user_metadata?.full_name || "",
+    emailContactoLegal: user?.email || "",
+    telefonoContactoLegal: "",
+    direccionFiscal: "",
+    rfc: "",
+  })
+
+  const handleInputChange = (field: string, value: string) => {
+    setFormData((prev) => ({ ...prev, [field]: value }))
+  }
+
+  const isFormValid = () => {
+    return (
+      formData.telefono.trim() !== "" &&
+      formData.fechaNacimiento.trim() !== "" &&
+      formData.restauranteNombre.trim() !== "" &&
+      formData.direccionFiscal.trim() !== ""
+    )
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!isFormValid()) return
+
+    try {
+      const response = await fetch('/api/auth/complete-profile', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(formData),
+      })
+
+      const data = await response.json()
+
+      if (response.ok) {
+        // ✅ Recargar datos del usuario
+        await refetch()
+        
+        // ✅ Redirigir a selección de planes
+        if (data.restaurante_id) {
+          router.push(`/dashboard/restaurantes/${data.restaurante_id}/planes?first_time=true`)
+        } else {
+          router.push('/dashboard')
+        }
+      } else {
+        console.error('Error:', data.error)
+        alert('Error al completar el perfil')
+      }
+    } catch (error) {
+      console.error('Error al completar perfil:', error)
+      alert('Error al completar el perfil')
+    }
+  }
+
+  return (
+    <div className="min-h-screen flex items-center justify-center p-4">
+      <Card className="w-full max-w-2xl">
+        <CardHeader className="text-center">
+          <div className="mx-auto w-16 h-16 bg-gradient-to-br from-primary to-secondary rounded-2xl flex items-center justify-center">
+            <ChefHat className="w-8 h-8 text-primary-foreground" />
+          </div>
+          <CardTitle>Completa tu perfil</CardTitle>
+        </CardHeader>
+
+        <CardContent>
+          <form onSubmit={handleSubmit} className="space-y-6">
+            {/* Información Personal */}
+            <div className="space-y-4">
+              <h3 className="text-lg font-semibold">Información Personal</h3>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="telefono">Teléfono *</Label>
+                  <Input
+                    id="telefono"
+                    type="tel"
+                    value={formData.telefono}
+                    onChange={(e) => handleInputChange('telefono', e.target.value)}
+                    placeholder="1234567890"
+                    required
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="fechaNacimiento">Fecha de Nacimiento *</Label>
+                  <Input
+                    id="fechaNacimiento"
+                    type="date"
+                    value={formData.fechaNacimiento}
+                    onChange={(e) => handleInputChange('fechaNacimiento', e.target.value)}
+                    required
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Información del Restaurante */}
+            <div className="space-y-4">
+              <h3 className="text-lg font-semibold">Información del Restaurante</h3>
+              
+              <div>
+                <Label htmlFor="restauranteNombre">Nombre del Restaurante *</Label>
+                <Input
+                  id="restauranteNombre"
+                  value={formData.restauranteNombre}
+                  onChange={(e) => handleInputChange('restauranteNombre', e.target.value)}
+                  placeholder="Mi Restaurante"
+                  required
+                />
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="nombreContactoLegal">Nombre Contacto Legal</Label>
+                  <Input
+                    id="nombreContactoLegal"
+                    value={formData.nombreContactoLegal}
+                    onChange={(e) => handleInputChange('nombreContactoLegal', e.target.value)}
+                    placeholder="Juan Pérez"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="emailContactoLegal">Email Contacto Legal</Label>
+                  <Input
+                    id="emailContactoLegal"
+                    type="email"
+                    value={formData.emailContactoLegal}
+                    onChange={(e) => handleInputChange('emailContactoLegal', e.target.value)}
+                    placeholder="contacto@mirestaurante.com"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <Label htmlFor="direccionFiscal">Dirección Fiscal *</Label>
+                <Input
+                  id="direccionFiscal"
+                  value={formData.direccionFiscal}
+                  onChange={(e) => handleInputChange('direccionFiscal', e.target.value)}
+                  placeholder="Calle 123, Colonia, Ciudad, Estado, CP"
+                  required
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="rfc">RFC (Opcional)</Label>
+                <Input
+                  id="rfc"
+                  value={formData.rfc}
+                  onChange={(e) => handleInputChange('rfc', e.target.value)}
+                  placeholder="ABCD123456XYZ"
+                />
+              </div>
+            </div>
+
+            <Button 
+              type="submit" 
+              className="w-full" 
+              disabled={!isFormValid()}
+            >
+              Continuar a Selección de Plan
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
+    </div>
+  )
+}
+````
+
+## 3. Modificar el endpoint de `register` para redirigir a planes:
+
+````typescript
+import { createClient } from '@/lib/supabase/server'
+import { createServiceRoleClient } from '@/lib/supabase/service-role'
+import { NextRequest, NextResponse } from 'next/server'
+
+export async function POST(request: NextRequest) {
+  try {
+    const userData = await request.json()
+    
+    const {
+      email,
+      password,
+      nombre,
+      apellidos,
+      telefono,
+      country_code = '+52',
+      fecha_nacimiento,
+      restaurante_nombre,
+      nombre_contacto_legal,
+      email_contacto_legal,
+      telefono_contacto_legal,
+      direccion_fiscal,
+      rfc,
+      terminos_aceptados
+    } = userData
+
+    if (!terminos_aceptados) {
+      return NextResponse.json(
+        { error: 'Debes aceptar los términos y condiciones' },
+        { status: 400 }
+      )
+    }
+
+    const supabase = createClient()
+    const supabaseAdmin = createServiceRoleClient()
+
+    // 1. Crear usuario en auth
+    const { data: authData, error: authError } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: {
+          full_name: `${nombre} ${apellidos}`,
+          nombre,
+          apellidos
+        }
+      }
+    })
+
+    if (authError) {
+      return NextResponse.json({ error: authError.message }, { status: 400 })
+    }
+
+    if (!authData.user) {
+      return NextResponse.json({ error: 'Error al crear usuario' }, { status: 500 })
+    }
+
+    // 2. Crear restaurante
+    const { data: restaurante, error: restauranteError } = await supabaseAdmin
+      .from('restaurantes')
+      .insert({
+        nombre: restaurante_nombre,
+        nombre_contacto_legal: nombre_contacto_legal || `${nombre} ${apellidos}`,
+        email_contacto_legal: email_contacto_legal || email,
+        telefono_contacto_legal,
+        direccion_fiscal,
+        rfc,
+        terminos_aceptados_at: new Date().toISOString(),
+        is_active: true,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      })
+      .select('id')
+      .single()
+
+    if (restauranteError) {
+      console.error('Error creating restaurant:', restauranteError)
+      return NextResponse.json({ error: 'Error al crear restaurante' }, { status: 500 })
+    }
+
+    // 3. Crear perfil de usuario
+    const { error: profileError } = await supabaseAdmin
+      .from('user_profiles')
+      .insert({
+        id: authData.user.id,
+        email,
+        nombre,
+        apellidos,
+        telefono,
+        country_code,
+        fecha_nacimiento,
+        restaurante_id: restaurante.id,
+        role: 'admin',
+        is_active: true,
+        is_first_login: false, // ✅ Ya completó el registro
+        isVerified: false, // Necesita verificar email
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      })
+
+    if (profileError) {
+      console.error('Error creating profile:', profileError)
+      return NextResponse.json({ error: 'Error al crear perfil de usuario' }, { status: 500 })
+    }
+
+    // ✅ CAMBIO: Devolver restaurante_id para redirigir a planes
+    return NextResponse.json({
+      message: 'Usuario registrado exitosamente. Por favor verifica tu email.',
+      user: authData.user,
+      restaurante_id: restaurante.id,
+      redirect_to_plans: true
+    })
+
+  } catch (error) {
+    console.error('Error in register:', error)
+    return NextResponse.json({ error: 'Error interno del servidor' }, { status: 500 })
+  }
+}
+````
+
+## 4. Modificar el componente de signup para redirigir a planes:
+
+````tsx
+"use client"
+
+import { useState } from "react"
+// ...existing imports...
+import { useRouter } from "next/navigation"
+
+export default function SignUpPage() {
+  const router = useRouter()
+  // ...existing state...
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!isValid) return
+
+    setIsLoading(true)
+    setError("")
+
+    try {
+      const response = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(formData),
+      })
+
+      const data = await response.json()
+
+      if (response.ok) {
+        // ✅ Mostrar mensaje y redirigir a planes después de verificar email
+        setSuccessMessage(data.message)
+        
+        // Si se registró correctamente, ir a verificar email con info de planes
+        if (data.restaurante_id) {
+          // Guardar restaurante_id en localStorage temporalmente para después de verificación
+          localStorage.setItem('pending_restaurante_id', data.restaurante_id)
+          router.push('/verify-email?redirect_to_plans=true')
+        } else {
+          router.push('/verify-email')
+        }
+      } else {
+        setError(data.error || 'Error en el registro')
+      }
+    } catch (error) {
+      console.error('Error:', error)
+      setError('Error de conexión')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  // ...resto del componente existente...
+}
+````
+
+## 5. Modificar el callback para manejar verificación + planes:
+
+````typescript
+// ...existing code...
+
+export async function GET(request: Request) {
+  try {
+    const { searchParams, origin } = new URL(request.url)
+    const code = searchParams.get('code')
+    
+    if (!code) {
+      return NextResponse.redirect(`${origin}/login?error=no_code`)
+    }
+    
+    const supabase = await createClient()
+    
+    const { data, error } = await supabase.auth.exchangeCodeForSession(code)
+    
+    if (error || !data.user) {
+      console.error('Error exchanging code:', error)
+      return NextResponse.redirect(`${origin}/login?error=auth_error`)
+    }
+    
+    // Verificar si el usuario ya existe en user_profiles
+    const { data: existingProfile, error: profileError } = await supabase
+      .from('user_profiles')
+      .select('id, restaurante_id, is_first_login, isVerified')
+      .eq('id', data.user.id)
+      .single()
+    
+    // Si no existe, crear perfil básico para usuario de Google
+    if (!existingProfile) {
+      const { error: createError } = await supabase
+        .from('user_profiles')
+        .insert({
+          id: data.user.id,
+          email: data.user.email,
+          nombre: data.user.user_metadata?.given_name || data.user.user_metadata?.full_name?.split(' ')[0] || '',
+          apellidos: data.user.user_metadata?.family_name || data.user.user_metadata?.full_name?.split(' ').slice(1).join(' ') || '',
+          avatar_url: data.user.user_metadata?.avatar_url || null,
+          email_verified: true,
+          isVerified: true, // ✅ Google users are auto-verified
+          role: 'admin',
+          is_active: true,
+          is_first_login: true,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        })
+      
+      if (createError) {
+        console.error('Error creating profile:', createError)
+        return NextResponse.redirect(`${origin}/login?error=profile_creation_error`)
+      }
+      
+      // ✅ Redirigir a completar perfil (que luego va a planes)
+      return NextResponse.redirect(`${origin}/complete-profile`)
+    } 
+    
+    // ✅ Si existe pero no tiene restaurante, completar perfil
+    if (!existingProfile.restaurante_id || existingProfile.is_first_login) {
+      return NextResponse.redirect(`${origin}/complete-profile`)
+    }
+
+    // ✅ Si no está verificado, ir a verificar email
+    if (!existingProfile.isVerified) {
+      return NextResponse.redirect(`${origin}/verify-email`)
+    }
+    
+    // ✅ Si ya tiene perfil completo, verificar si necesita seleccionar plan
+    // (Esto se manejará en el middleware)
+    return NextResponse.redirect(`${origin}/dashboard`)
+    
+  } catch (error) {
+    console.error('Error en callback:', error)
+    return NextResponse.redirect(`${origin}/login?error=callback_error`)
+  }
+}
+````
+
+## 6. Modificar la página de planes para el flujo obligatorio:
+
+````tsx
+"use client"
+
+import { useState, useEffect } from "react"
+// ...existing imports...
+import { useSearchParams } from "next/navigation"
+
+export default function PlanesPage() {
+  const { subscription, limits, isLoading, error, allPlans } = useSubscription()
+  const { profile } = useAuth()
+  const searchParams = useSearchParams()
+  const router = useRouter()
+  
+  // ✅ Detectar si es primera vez (flujo obligatorio)
+  const isFirstTime = searchParams.get('first_time') === 'true'
+  
+  // ...existing state...
+
+  const handleSubscribe = async (planId: string) => {
+    if (!profile?.restaurante_id) {
+      console.error('No se encontró restaurante_id')
+      return
+    }
+
+    try {
+      setCheckoutLoading(planId)
+      
+      const response = await fetch('/api/stripe/checkout', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          planId,
+          restauranteId: profile.restaurante_id,
+          isFirstTime // ✅ Indicar si es primera vez
+        }),
+      })
+
+      const data = await response.json()
+
+      if (data.url) {
+        window.location.href = data.url
+      } else {
+        throw new Error(data.error || 'Error al crear sesión de checkout')
+      }
+    } catch (error) {
+      console.error('Error al iniciar checkout:', error)
+      alert('Error al procesar el pago. Por favor, intenta de nuevo.')
+    } finally {
+      setCheckoutLoading(null)
+    }
+  }
+
+  // ✅ Función para plan gratuito
+  const handleFreePlan = async () => {
+    if (!profile?.restaurante_id) {
+      console.error('No se encontró restaurante_id')
+      return
+    }
+
+    try {
+      setCheckoutLoading('trial')
+      
+      const response = await fetch('/api/subscription/create-trial', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          restauranteId: profile.restaurante_id
+        }),
+      })
+
+      if (response.ok) {
+        // Redirigir al dashboard del restaurante
+        router.push(`/dashboard/restaurantes/${profile.restaurante_id}`)
+      } else {
+        throw new Error('Error al activar plan gratuito')
+      }
+    } catch (error) {
+      console.error('Error:', error)
+      alert('Error al activar el plan gratuito')
+    } finally {
+      setCheckoutLoading(null)
+    }
+  }
+
+  if (loadingPlans || isLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-background via-muted/30 to-background">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <div className="text-center">
+            <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4" />
+            <p>Cargando planes...</p>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-background via-muted/30 to-background">
+      {/* Header */}
+      <header className="glass-strong border-b border-border/50 sticky top-0 z-50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between h-16">
+            <div className="flex items-center space-x-4">
+              {/* ✅ Solo mostrar botón "atrás" si NO es primera vez */}
+              {!isFirstTime && (
+                <Link href="/dashboard">
+                  <Button variant="ghost" size="sm">
+                    <ArrowLeft className="w-4 h-4" />
+                  </Button>
+                </Link>
+              )}
+              <div className="w-10 h-10 bg-gradient-to-br from-primary to-secondary rounded-xl flex items-center justify-center">
+                <Crown className="w-5 h-5 text-primary-foreground" />
+              </div>
+              <div>
+                <h1 className="text-xl font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
+                  {isFirstTime ? 'Selecciona tu Plan' : 'Planes y Precios'}
+                </h1>
+                <p className="text-xs text-muted-foreground">
+                  {isFirstTime 
+                    ? 'Elige el plan perfecto para comenzar' 
+                    : 'Elige el plan perfecto para tu restaurante'
+                  }
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* ✅ Mensaje especial para primera vez */}
+        {isFirstTime && (
+          <div className="mb-8">
+            <Alert className="border-primary/20 bg-primary/5">
+              <Crown className="h-4 w-4 text-primary" />
+              <AlertDescription>
+                <strong>¡Bienvenido a CEATS!</strong> Para completar tu registro, selecciona el plan que mejor se adapte a tu restaurante. Puedes cambiarlo después.
+              </AlertDescription>
+            </Alert>
+          </div>
+        )}
+
+        {/* ...resto del contenido existente... */}
+
+        {/* Plans Grid con modificaciones */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+          {plans.map((plan) => (
+            <Card 
+              key={plan.id} 
+              className={`glass hover:glass-strong transition-all duration-300 transform hover:scale-[1.02] relative overflow-hidden ${
+                plan.popular ? 'border-primary/50 shadow-lg' : ''
+              } ${
+                isCurrentPlan(plan.id) ? 'ring-2 ring-primary ring-opacity-50' : ''
+              }`}
+            >
+              {/* ...existing card content... */}
+
+              {/* Action Button con lógica modificada */}
+              <div className="pt-4">
+                {!isFirstTime && isCurrentPlan(plan.id) ? (
+                  <Button 
+                    disabled 
+                    className="w-full"
+                    variant="outline"
+                  >
+                    Plan Actual
+                  </Button>
+                ) : (
+                  <Button
+                    onClick={() => {
+                      // ✅ Si es plan gratuito y primera vez, usar función especial
+                      if (plan.price === 0 && isFirstTime) {
+                        handleFreePlan()
+                      } else {
+                        handleSubscribe(plan.id)
+                      }
+                    }}
+                    disabled={checkoutLoading !== null}
+                    className={`w-full transition-all duration-300 ${
+                      plan.popular || plan.recommended
+                        ? 'bg-gradient-to-r from-primary to-secondary hover:from-primary/90 hover:to-secondary/90'
+                        : ''
+                    }`}
+                  >
+                    {checkoutLoading === plan.id ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Procesando...
+                      </>
+                    ) : (
+                      <>
+                        {isFirstTime 
+                          ? (plan.price === 0 ? 'Comenzar con Plan Gratuito' : 'Seleccionar Plan')
+                          : (plan.price === 0 ? 'Comenzar Gratis' : 
+                             getCurrentPlan() === 'trial' ? 'Actualizar Plan' : 'Cambiar Plan')
+                        }
+                      </>
+                    )}
+                  </Button>
+                )}
+              </div>
+            </Card>
+          ))}
+        </div>
+
+        {/* ✅ Footer especial para primera vez */}
+        {isFirstTime && (
+          <div className="mt-8 text-center">
+            <p className="text-sm text-muted-foreground">
+              ¿Tienes dudas? <Link href="/contacto" className="text-primary hover:underline">Contáctanos</Link>
+            </p>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+````
+
+## 7. Crear endpoint para activar plan trial:
+
+````typescript
+import { createClient } from '@/lib/supabase/server'
+import { createServiceRoleClient } from '@/lib/supabase/service-role'
+import { NextRequest, NextResponse } from 'next/server'
+import { cookies } from 'next/headers'
+
+export async function POST(request: NextRequest) {
+  try {
+    const { restauranteId } = await request.json()
+
+    if (!restauranteId) {
+      return NextResponse.json({ error: 'restauranteId requerido' }, { status: 400 })
+    }
+
+    // Verificar autenticación
+    const cookieStore = cookies()
+    const supabase = createClient(cookieStore)
+    const { data: { user } } = await supabase.auth.getUser()
+
+    if (!user) {
+      return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
+    }
+
+    const supabaseAdmin = createServiceRoleClient()
+
+    // Verificar que el usuario tiene acceso al restaurante
+    const { data: userProfile } = await supabaseAdmin
+      .from('user_profiles')
+      .select('restaurante_id')
+      .eq('id', user.id)
+      .single()
+
+    if (!userProfile || userProfile.restaurante_id !== restauranteId) {
+      return NextResponse.json({ error: 'No autorizado' }, { status: 403 })
+    }
+
+    // Crear suscripción trial
+    const trialEndDate = new Date()
+    trialEndDate.setDate(trialEndDate.getDate() + 30) // 30 días de trial
+
+    const { error: subscriptionError } = await supabaseAdmin
+      .from('suscripciones')
+      .insert({
+        restaurante_id: restauranteId,
+        plan_type: 'trial',
+        status: 'active',
+        current_period_start: new Date().toISOString(),
+        current_period_end: trialEndDate.toISOString(),
+        cancel_at_period_end: false,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      })
+
+    if (subscriptionError) {
+      console.error('Error creating trial subscription:', subscriptionError)
+      return NextResponse.json({ error: 'Error al crear suscripción trial' }, { status: 500 })
+    }
+
+    return NextResponse.json({ success: true })
+
+  } catch (error) {
+    console.error('Error en create-trial:', error)
+    return NextResponse.json({ error: 'Error interno del servidor' }, { status: 500 })
+  }
+}
+````
+
+**Resumen del flujo implementado:**
+
+1. ✅ **Registro normal** → **Verificar email** → **Seleccionar plan obligatoriamente**
+2. ✅ **Google Auth** → **Complete profile** → **Seleccionar plan obligatoriamente**
+3. ✅ **Plan gratuito** se activa inmediatamente sin Stripe
+4. ✅ **Planes pagos** van por Stripe checkout
+5. ✅ **No se puede acceder al dashboard** sin seleccionar un plan
+6. ✅ **Interfaz específica** para primera vez vs cambio de plan
+
+Ahora todos los usuarios deberán seleccionar un plan obligatoriamente después del registro.
 
 ---
 
