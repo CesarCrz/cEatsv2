@@ -57,7 +57,7 @@ export default function CompleteProfilePage() {
       
       if (response.ok) {
         if (data?.restaurante_id && data?.redirect_to_plans) {
-          const redirectUrl = `/planes`
+          const redirectUrl = `/dashboard/restaurantes/${data.restaurante_id}/planes`
           console.log('Attempting to redirect to:', redirectUrl)
           
           // Usar window.location para forzar un refresh completo
