@@ -195,3 +195,352 @@ Durante el rebase, si hay **conflictos** entre tus cambios y los remotos, Git pa
 
 ---
 
+_**User (2025-10-10 19:57Z)**_
+
+a ver hice el git rebase --continue y ahora no puedo salir de aqui:
+le:   app/api/contact/send-from-contact-page/route.ts
+#       new file:   app/contact/pages.tsx
+#       new file:   app/dashboard/.DS_Store
+#       new file:   app/dashboard/restaurantes/.DS_Store
+#       new file:   app/dashboard/restaurantes/[id]/.DS_Store
+#       modified:   app/dashboard/restaurantes/[id]/page.tsx
+#       modified:   app/dashboard/restaurantes/[id]/planes/page.tsx
+#       new file:   app/dashboard/sucursales/.DS_Store
+#       modified:   app/dashboard/sucursales/[id]/page.tsx
+#       modified:   app/favicon.ico
+#       modified:   app/page.tsx
+#       modified:   app/planes/page.tsx
+#       new file:   app/privacy-policies/page.tsx
+#       new file:   app/terms-of-service/page.tsx
+#       new file:   components/.DS_Store
+
+
+new changes
+
+
+
+-- INSERT --
+
+---
+
+_**Assistant (copilot/claude-sonnet-4)**_
+
+Estás en el editor **Vim** para escribir un mensaje de commit. Para salir:
+
+## Para salir del editor Vim:
+
+1. **Presiona `Esc`** para salir del modo INSERT
+2. **Escribe `:wq`** y presiona Enter
+   - `:w` = guardar (write)
+   - `:q` = salir (quit)
+
+## Alternativas si lo anterior no funciona:
+
+- **`:q!`** + Enter = salir sin guardar
+- **`ZZ`** = guardar y salir rápido
+
+## Proceso completo:
+
+```
+1. Presiona: Esc
+2. Escribe: :wq
+3. Presiona: Enter
+```
+
+Esto completará el rebase y regresarás al terminal normal. Después podrás hacer:
+
+```bash
+git push origin main
+```
+
+## Tip para el futuro:
+Si prefieres usar otro editor en lugar de Vim para commits:
+```bash
+git config --global core.editor "code --wait"
+```
+Esto configurará VS Code como tu editor de Git.
+
+---
+
+_**User (2025-10-10 20:02Z)**_
+
+ayuda intente desplegarlo en mi vps y me dió este error:
+#12 0.180 
+#12 0.731 Attention: Next.js now collects completely anonymous telemetry regarding usage.
+#12 0.731 This information is used to shape Next.js' roadmap and prioritize features.
+#12 0.731 You can learn more, including how to opt-out if you'd not like to participate in this anonymous program, by visiting the following URL:
+#12 0.731 https://nextjs.org/telemetry
+#12 0.731 
+#12 0.788    ▲ Next.js 15.2.4
+#12 0.788    - Environments: .env
+#12 0.789 
+#12 0.833    Creating an optimized production build ...
+#12 7.192 Failed to compile.
+#12 7.192 
+#12 7.194 ./app/dashboard/restaurantes/[id]/page.tsx
+#12 7.194 Error:   x Merge conflict marker encountered.
+#12 7.194      ,-[/app/app/dashboard/restaurantes/[id]/page.tsx:290:1]
+#12 7.194  287 |           pedidos_hoy,
+#12 7.194  288 |           ingresos_hoy,
+#12 7.194  289 |         }
+#12 7.194  290 | <<<<<<< HEAD
+#12 7.194      : ^^^^^^^
+#12 7.194  291 | 
+#12 7.194  292 |         // Solo recargar analytics, los pedidos se actualizan por realtime
+#12 7.194  293 |         await cargarAnalytics()
+#12 7.194      `----
+#12 7.194   x Expected ',', got 'const'
+#12 7.194      ,-[/app/app/dashboard/restaurantes/[id]/page.tsx:296:1]
+#12 7.194  293 |         await cargarAnalytics()
+#12 7.194  294 |     }
+#12 7.194  295 | 
+#12 7.194  296 |     const handleLogout = async () => {
+#12 7.194      :     ^^^^^
+#12 7.194  297 |         await supabase.auth.signOut()
+#12 7.194  298 |         router.push('/login')
+#12 7.194  299 |     }
+#12 7.194      `----
+#12 7.194 
+#12 7.194 Caused by:
+#12 7.194     Syntax Error
+#12 7.194 
+#12 7.194 Import trace for requested module:
+#12 7.194 ./app/dashboard/restaurantes/[id]/page.tsx
+#12 7.194 
+#12 7.194 ./app/dashboard/restaurantes/[id]/planes/page.tsx
+#12 7.194 Error:   x Merge conflict marker encountered.
+#12 7.194     ,-[/app/app/dashboard/restaurantes/[id]/planes/page.tsx:92:1]
+#12 7.194  89 |           "Content-Type": "application/json",
+#12 7.194  90 |         },
+#12 7.194  91 |         body: JSON.stringify({
+#12 7.194  92 | <<<<<<< HEAD
+#12 7.194     : ^^^^^^^
+#12 7.194  93 |           planType: planId,
+#12 7.194  94 |           restauranteId: profile.restaurante_id
+#12 7.194  95 | =======
+#12 7.194     `----
+#12 7.194   x Merge conflict marker encountered.
+#12 7.194     ,-[/app/app/dashboard/restaurantes/[id]/planes/page.tsx:95:1]
+#12 7.194  92 | <<<<<<< HEAD
+#12 7.194  93 |           planType: planId,
+#12 7.194  94 |           restauranteId: profile.restaurante_id
+#12 7.194  95 | =======
+#12 7.194     : ^^^^^^^
+#12 7.194  96 |           planId,
+#12 7.194  97 |           restauranteId: profile.restaurante_id,
+#12 7.194  98 | >>>>>>> 655852c (new changes on the branding on the visuals, on the screens, new UI, and some changes more...)
+#12 7.194     `----
+#12 7.194   x Expected ',', got 'planId'
+#12 7.194     ,-[/app/app/dashboard/restaurantes/[id]/planes/page.tsx:95:1]
+#12 7.194  92 |     <<<<<<< HEAD
+#12 7.194  93 |               planType: planId,
+#12 7.194  94 |               restauranteId: profile.restaurante_id
+#12 7.194  95 | ,-> =======
+#12 7.194  96 | `->           planId,
+#12 7.194  97 |               restauranteId: profile.restaurante_id,
+#12 7.194  98 |     >>>>>>> 655852c (new changes on the branding on the visuals, on the screens, new UI, and some changes more...)
+#12 7.194  99 |             }),
+#12 7.194     `----
+#12 7.194 
+#12 7.194 Caused by:
+#12 7.194     Syntax Error
+#12 7.194 
+#12 7.194 Import trace for requested module:
+#12 7.194 ./app/dashboard/restaurantes/[id]/planes/page.tsx
+#12 7.194 
+#12 7.194 ./app/page.tsx
+#12 7.194 Error:   x Merge conflict marker encountered.
+#12 7.194    ,-[/app/app/page.tsx:6:1]
+#12 7.194  3 | import { useState } from "react"
+#12 7.194  4 | import Link from "next/link"
+#12 7.194  5 | import { Button } from "@/components/ui/button"
+#12 7.194  6 | <<<<<<< HEAD
+#12 7.194    : ^^^^^^^
+#12 7.194  7 | import { ChefHat, ArrowRight, Users, Building, TrendingUp, Shield } from "lucide-react"
+#12 7.194  8 | import { OAuthCallbackHandler } from "@/components/oauth-callback-handler"
+#12 7.194  9 | import { Suspense } from "react"
+#12 7.194    `----
+#12 7.194   x Merge conflict marker encountered.
+#12 7.194     ,-[/app/app/page.tsx:10:1]
+#12 7.194   7 | import { ChefHat, ArrowRight, Users, Building, TrendingUp, Shield } from "lucide-react"
+#12 7.194   8 | import { OAuthCallbackHandler } from "@/components/oauth-callback-handler"
+#12 7.194   9 | import { Suspense } from "react"
+#12 7.194  10 | =======
+#12 7.194     : ^^^^^^^
+#12 7.194  11 | import { ChefHat, ArrowRight, MessageSquare, Zap, BarChart3, Shield, Clock, Users, Check, Menu, X } from "lucide-react"
+#12 7.194  12 | >>>>>>> 655852c (new changes on the branding on the visuals, on the screens, new UI, and some changes more...)
+#12 7.194     `----
+#12 7.194   x Merge conflict marker encountered.
+#12 7.194     ,-[/app/app/page.tsx:12:1]
+#12 7.194   9 | import { Suspense } from "react"
+#12 7.194  10 | =======
+#12 7.194  11 | import { ChefHat, ArrowRight, MessageSquare, Zap, BarChart3, Shield, Clock, Users, Check, Menu, X } from "lucide-react"
+#12 7.194  12 | >>>>>>> 655852c (new changes on the branding on the visuals, on the screens, new UI, and some changes more...)
+#12 7.194     : ^^^^^^^
+#12 7.194  13 | 
+#12 7.194  14 | export default function HomePage() {
+#12 7.194  15 |   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+#12 7.194     `----
+#12 7.194   x Merge conflict marker encountered.
+#12 7.194     ,-[/app/app/page.tsx:18:1]
+#12 7.194  15 |   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+#12 7.194  16 | 
+#12 7.194  17 |   return (
+#12 7.194  18 | <<<<<<< HEAD
+#12 7.194     : ^^^^^^^
+#12 7.194  19 |     <div className="min-h-screen bg-gradient-to-br from-background via-muted/30 to-background relative overflow-hidden">
+#12 7.194  20 |       <Suspense fallback={null}>
+#12 7.194  21 |         <OAuthCallbackHandler />
+#12 7.194     `----
+#12 7.194   x Expression expected
+#12 7.194     ,-[/app/app/page.tsx:19:1]
+#12 7.194  16 | 
+#12 7.194  17 |   return (
+#12 7.194  18 | <<<<<<< HEAD
+#12 7.194  19 |     <div className="min-h-screen bg-gradient-to-br from-background via-muted/30 to-background relative overflow-hidden">
+#12 7.194     :                                                                                                                        ^
+#12 7.194  20 |       <Suspense fallback={null}>
+#12 7.194  21 |         <OAuthCallbackHandler />
+#12 7.194  22 |       </Suspense>
+#12 7.194     `----
+#12 7.194   x Expected ',', got '{'
+#12 7.194     ,-[/app/app/page.tsx:23:1]
+#12 7.194  20 |       <Suspense fallback={null}>
+#12 7.194  21 |         <OAuthCallbackHandler />
+#12 7.194  22 |       </Suspense>
+#12 7.194  23 |       {/* Background decorative elements */}
+#12 7.194     :       ^
+#12 7.194  24 |       <div className="absolute inset-0 overflow-hidden">
+#12 7.194  25 |         <div className="absolute -top-40 -right-40 w-80 h-80 bg-primary/10 rounded-full blur-3xl animate-float"></div>
+#12 7.194  26 |         <div
+#12 7.194     `----
+#12 7.194 
+#12 7.194 Caused by:
+#12 7.194     Syntax Error
+#12 7.194 
+#12 7.194 Import trace for requested module:
+#12 7.194 ./app/page.tsx
+#12 7.194 
+#12 7.205 
+#12 7.205 > Build failed because of webpack errors
+#12 ERROR: process "/bin/bash -ol pipefail -c chmod +x node_modules/.bin/next && npm run build" did not complete successfully: exit code: 1
+------
+ > [stage-0  8/10] RUN --mount=type=cache,id=HqYm2NQpmUg-next/cache,target=/app/.next/cache --mount=type=cache,id=HqYm2NQpmUg-node_modules/cache,target=/app/node_modules/.cache chmod +x node_modules/.bin/next && npm run build:
+7.194     `----
+7.194 
+7.194 Caused by:
+7.194     Syntax Error
+7.194 
+7.194 Import trace for requested module:
+7.194 ./app/page.tsx
+7.194 
+7.205 
+7.205 > Build failed because of webpack errors
+------
+
+ 9 warnings found (use docker --debug to expand):
+ - SecretsUsedInArgOrEnv: Do not use ARG or ENV instructions for sensitive data (ENV "STRIPE_WEBHOOK_SECRET") (line 12)
+ - UndefinedVar: Usage of undefined variable '$NIXPACKS_PATH' (line 18)
+ - SecretsUsedInArgOrEnv: Do not use ARG or ENV instructions for sensitive data (ARG "RESEND_API_KEY") (line 11)
+ - SecretsUsedInArgOrEnv: Do not use ARG or ENV instructions for sensitive data (ARG "STRIPE_SECRET_KEY") (line 11)
+ - SecretsUsedInArgOrEnv: Do not use ARG or ENV instructions for sensitive data (ARG "SUPABASE_SERVICE_ROLE_KEY") (line 11)
+ - SecretsUsedInArgOrEnv: Do not use ARG or ENV instructions for sensitive data (ENV "RESEND_API_KEY") (line 12)
+ - SecretsUsedInArgOrEnv: Do not use ARG or ENV instructions for sensitive data (ENV "STRIPE_SECRET_KEY") (line 12)
+ - SecretsUsedInArgOrEnv: Do not use ARG or ENV instructions for sensitive data (ENV "SUPABASE_SERVICE_ROLE_KEY") (line 12)
+ - SecretsUsedInArgOrEnv: Do not use ARG or ENV instructions for sensitive data (ARG "STRIPE_WEBHOOK_SECRET") (line 11)
+Dockerfile:24
+--------------------
+  22 |     # build phase
+  23 |     COPY . /app/.
+  24 | >>> RUN --mount=type=cache,id=HqYm2NQpmUg-next/cache,target=/app/.next/cache --mount=type=cache,id=HqYm2NQpmUg-node_modules/cache,target=/app/node_modules/.cache chmod +x node_modules/.bin/next && npm run build
+  25 |     
+  26 |     
+--------------------
+ERROR: failed to build: failed to solve: process "/bin/bash -ol pipefail -c chmod +x node_modules/.bin/next && npm run build" did not complete successfully: exit code: 1
+##########################################
+### Error
+### Fri, 10 Oct 2025 19:58:42 GMT
+##########################################
+
+
+como lo soluciono?
+
+---
+
+_**Assistant (copilot/claude-sonnet-4)**_
+
+El problema es que tienes **conflictos de merge sin resolver** en tu código. Durante el rebase anterior, algunos conflictos no se resolvieron correctamente y quedaron los marcadores de conflicto en el código.
+
+## ¿Qué son estos marcadores?
+
+```
+<<<<<<< HEAD
+código de la rama actual
+=======
+código de la rama que se está fusionando
+>>>>>>> commit-hash
+```
+
+## Solución paso a paso:
+
+### 1. Localiza y resuelve los conflictos manualmente
+
+Abre estos archivos en VS Code y busca los marcadores:
+
+````typescript
+// Busca línea 290 y reemplaza esto:
+<<<<<<< HEAD
+
+        // Solo recargar analytics, los pedidos se actualizan por realtime
+        await cargarAnalytics()
+=======
+// Por el código que quieres mantener
+````
+
+````typescript
+// Busca línea 92 y reemplaza:
+<<<<<<< HEAD
+          planType: planId,
+          restauranteId: profile.restaurante_id
+=======
+          planId,
+          restauranteId: profile.restaurante_id,
+>>>>>>> 655852c
+// Por:
+          planId,
+          restauranteId: profile.restaurante_id,
+````
+
+````typescript
+// Reemplaza los imports conflictivos por:
+import { ChefHat, ArrowRight, MessageSquare, Zap, BarChart3, Shield, Clock, Users, Check, Menu, X } from "lucide-react"
+import { OAuthCallbackHandler } from "@/components/oauth-callback-handler"
+import { Suspense } from "react"
+````
+
+### 2. Después de resolver todos los conflictos:
+
+```bash
+git add .
+git commit -m "Resolver conflictos de merge"
+git push origin main
+```
+
+### 3. Luego intenta el deploy nuevamente
+
+¿Quieres que te ayude a resolver algún conflicto específico una vez que abras los archivos?
+
+---
+
+_**User (2025-10-10 20:02Z)**_
+
+dale adelante haz los cambios por tu cuenta por favor 
+
+---
+
+_**Assistant (copilot/claude-sonnet-4)**_
+
+Voy a resolver todos los conflictos de merge por ti. Empezaré leyendo los archivos para ver exactamente qué necesita arreglarse. No veo los marcadores de conflicto aquí. Déjame buscar más específicamente en el archivo: Parece que los conflictos ya fueron resueltos o no están en las áreas que estoy revisando. Déjame hacer una búsqueda más amplia: Parece que está encontrando símbolos de igual que no son marcadores de conflicto. Déjame buscar específicamente los marcadores de conflicto de Git: Los marcadores solo están en archivos de historial. Déjame verificar el estado actual de git para ver si hay conflictos activos: Parece que el rebase ya se completó exitosamente y no hay conflictos activos. Sin embargo, según el error de compilación que mostraste, todavía hay archivos con marcadores de conflicto. Déjame hacer una búsqueda más específica en los archivos mencionados en el error: Veo que hay un problema diferente. Parece que los conflictos de merge pueden estar ocurriendo durante el build en el servidor, pero no localmente. Déjame hacer una búsqueda más específica en el código fuente real para encontrar 
+
+---
+

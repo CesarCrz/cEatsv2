@@ -3,51 +3,12 @@
 import { useState } from "react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
-<<<<<<< HEAD
-import { ChefHat, ArrowRight, Users, Building, TrendingUp, Shield } from "lucide-react"
-import { OAuthCallbackHandler } from "@/components/oauth-callback-handler"
-import { Suspense } from "react"
-=======
 import { ChefHat, ArrowRight, MessageSquare, Zap, BarChart3, Shield, Clock, Users, Check, Menu, X } from "lucide-react"
->>>>>>> 655852c (new changes on the branding on the visuals, on the screens, new UI, and some changes more...)
 
 export default function HomePage() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
   return (
-<<<<<<< HEAD
-    <div className="min-h-screen bg-gradient-to-br from-background via-muted/30 to-background relative overflow-hidden">
-      <Suspense fallback={null}>
-        <OAuthCallbackHandler />
-      </Suspense>
-      {/* Background decorative elements */}
-      <div className="absolute inset-0 overflow-hidden">
-        <div className="absolute -top-40 -right-40 w-80 h-80 bg-primary/10 rounded-full blur-3xl animate-float"></div>
-        <div
-          className="absolute -bottom-40 -left-40 w-80 h-80 bg-secondary/10 rounded-full blur-3xl animate-float"
-          style={{ animationDelay: "2s" }}
-        ></div>
-        <div
-          className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-accent/5 rounded-full blur-3xl animate-float"
-          style={{ animationDelay: "4s" }}
-        ></div>
-      </div>
-
-      <div className="relative z-10">
-        {/* Header */}
-        <header className="glass-strong border-b border-border/50">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex items-center justify-between h-16">
-              <div className="flex items-center space-x-4">
-                <div className="w-10 h-10 bg-gradient-to-br from-primary to-secondary rounded-xl flex items-center justify-center">
-                  <ChefHat className="w-5 h-5 text-primary-foreground" />
-                </div>
-                <div>
-                  <h1 className="text-xl font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
-                    cEats v2
-                  </h1>
-                </div>
-=======
     <div className="min-h-screen bg-white">
       {/* Header */}
       <header className="sticky top-0 z-50 bg-white/95 backdrop-blur-sm border-b border-gray-200">
@@ -56,7 +17,6 @@ export default function HomePage() {
             <div className="flex items-center space-x-3">
               <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-blue-800 rounded-xl flex items-center justify-center">
                 <ChefHat className="w-5 h-5 text-white" />
->>>>>>> 655852c (new changes on the branding on the visuals, on the screens, new UI, and some changes more...)
               </div>
               <span className="text-xl font-bold bg-gradient-to-r from-blue-600 to-blue-800 bg-clip-text text-transparent">
                 cEats v2

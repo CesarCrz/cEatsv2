@@ -89,13 +89,8 @@ export default function PlanesPage() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-<<<<<<< HEAD
-          planType: planId,
-          restauranteId: profile.restaurante_id
-=======
           planId,
           restauranteId: profile.restaurante_id,
->>>>>>> 655852c (new changes on the branding on the visuals, on the screens, new UI, and some changes more...)
         }),
       })
 
@@ -149,13 +144,7 @@ export default function PlanesPage() {
   }
 
   const getCurrentPlan = () => {
-<<<<<<< HEAD
-    const currentPlan = subscription?.plan_type
-    console.log(`Plan actual: ${currentPlan}`)
-    return currentPlan || null
-=======
     return subscription?.plan_type || "trial"
->>>>>>> 655852c (new changes on the branding on the visuals, on the screens, new UI, and some changes more...)
   }
 
   const isCurrentPlan = (planId: string) => {
@@ -229,145 +218,6 @@ export default function PlanesPage() {
             según tus necesidades.
           </p>
         </div>
-
-<<<<<<< HEAD
-          {/* Current Plan Info */}
-          {subscription && subscription.plan_type ? (
-            <div className="mb-8">
-              <Card className="glass border-primary/20">
-                <CardHeader>
-                  <CardTitle className="flex items-center space-x-2">
-                    <Crown className="w-5 h-5 text-primary" />
-                    <span>Tu Plan Actual</span>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="font-semibold">{limits?.nombre_display}</p>
-                      <p className="text-sm text-muted-foreground">
-                        {subscription.status === 'active' ? 'Activo' : 'Inactivo'}
-                        {subscription.cancel_at_period_end && (
-                          <span className="text-orange-600 ml-2">
-                            (Se cancelará al final del período)
-                          </span>
-                        )}
-                      </p>
-                      {subscription.current_period_end && (
-                        <p className="text-xs text-muted-foreground mt-1">
-                          Próxima renovación: {new Date(subscription.current_period_end).toLocaleDateString()}
-                        </p>
-                      )}
-                    </div>
-                    <div className="flex items-center space-x-3">
-                      <Badge variant="outline" className="text-primary border-primary">
-                        Plan Actual
-                      </Badge>
-                      {subscription.plan_type !== 'trial' && (
-                        <Button
-                          onClick={handleManageSubscription}
-                          disabled={portalLoading}
-                          variant="outline"
-                          size="sm"
-                          className="border-primary text-primary hover:bg-primary hover:text-white"
-                        >
-                          {portalLoading ? (
-                            <>
-                              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                              Cargando...
-                            </>
-                          ) : (
-                            'Gestionar Suscripción'
-                          )}
-                        </Button>
-                      )}
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-          ) : (
-            // ✅ Mostrar cuando no hay plan seleccionado
-            <div className="mb-8">
-              <Card className="glass border-orange-200 bg-orange-50/50">
-                <CardHeader>
-                  <CardTitle className="flex items-center space-x-2 text-orange-800">
-                    <AlertTriangle className="w-5 h-5" />
-                    <span>Selecciona tu Plan</span>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-orange-700">
-                    Para comenzar a usar cEats, necesitas seleccionar un plan. 
-                    Puedes comenzar con nuestro plan gratuito y actualizar cuando lo necesites.
-                  </p>
-                </CardContent>
-              </Card>
-            </div>
-          )}
-
-          {/* Portal Management Info */}
-          {subscription && subscription.plan_type !== 'trial' && (
-            <div className="mb-8">
-              <Card className="glass border-blue-200">
-                <CardHeader>
-                  <CardTitle className="text-sm font-medium text-blue-800">
-                    Gestión de Suscripción
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-sm text-blue-700 mb-2">
-                    A través del portal de gestión de suscripciones puedes:
-                  </p>
-                  <ul className="text-xs text-blue-600 space-y-1 list-disc list-inside">
-                    <li>Actualizar información de facturación</li>
-                    <li>Cambiar método de pago</li>
-                    <li>Descargar facturas</li>
-                    <li>Cancelar tu suscripción</li>
-                    <li>Ver historial de pagos</li>
-                  </ul>
-                </CardContent>
-              </Card>
-            </div>
-          )}
-
-          {/* Plans Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-            {plans.map((plan) => (
-              <Card 
-                key={plan.id} 
-                className={`glass hover:glass-strong transition-all duration-300 transform hover:scale-[1.02] relative overflow-hidden ${
-                  plan.popular ? 'border-primary/50 shadow-lg' : ''
-                } ${
-                  isCurrentPlan(plan.id) ? 'ring-2 ring-primary ring-opacity-50' : ''
-                }`}
-              >
-                {plan.popular && (
-                  <div className="absolute top-0 right-0 bg-gradient-to-l from-primary to-secondary text-primary-foreground text-xs font-bold px-3 py-1 rounded-bl-lg">
-                    <Star className="w-3 h-3 inline mr-1" />
-                    Más Popular
-                  </div>
-                )}
-                
-                {plan.recommended && (
-                  <div className="absolute top-0 right-0 bg-gradient-to-l from-green-500 to-green-600 text-white text-xs font-bold px-3 py-1 rounded-bl-lg">
-                    <Zap className="w-3 h-3 inline mr-1" />
-                    Recomendado
-                  </div>
-                )}
-
-                <CardHeader className="text-center pb-4">
-                  <CardTitle className="text-xl font-bold">{plan.displayName}</CardTitle>
-                  <CardDescription className="text-sm">{plan.description}</CardDescription>
-                  <div className="mt-4">
-                    <div className="flex items-center justify-center">
-                      <span className="text-sm">$</span>
-                      <span className="text-4xl font-bold">{plan.price.toLocaleString()}</span>
-                      <span className="text-sm ml-1">/{plan.interval === 'month' ? 'mes' : 'año'}</span>
-                    </div>
-                    {plan.price === 0 && (
-                      <p className="text-xs text-muted-foreground mt-1">Gratis por tiempo limitado</p>
-=======
         {/* Current Plan Info */}
         {subscription && (
           <div className="mb-8">
@@ -399,7 +249,6 @@ export default function PlanesPage() {
                       <p className="text-xs text-muted-foreground mt-1">
                         Próxima renovación: {new Date(subscription.current_period_end).toLocaleDateString()}
                       </p>
->>>>>>> 655852c (new changes on the branding on the visuals, on the screens, new UI, and some changes more...)
                     )}
                   </div>
                   <div className="flex items-center space-x-3">
@@ -408,21 +257,11 @@ export default function PlanesPage() {
                     </Badge>
                     {subscription.plan_type !== "trial" && (
                       <Button
-<<<<<<< HEAD
-                        onClick={() => handleSubscribe(plan.id)}
-                        disabled={checkoutLoading !== null}
-                        className={`w-full transition-all duration-300 ${
-                          plan.popular || plan.recommended
-                            ? 'bg-gradient-to-r from-primary to-secondary hover:from-primary/90 hover:to-secondary/90'
-                            : ''
-                        } ${needsToSelectPlan() ? 'ring-2 ring-primary ring-opacity-30' : ''}`}
-=======
                         onClick={handleManageSubscription}
                         disabled={portalLoading}
                         variant="outline"
                         size="sm"
                         className="border-blue-600 text-blue-600 hover:bg-blue-600 hover:text-white transition-all duration-300 bg-transparent"
->>>>>>> 655852c (new changes on the branding on the visuals, on the screens, new UI, and some changes more...)
                       >
                         {portalLoading ? (
                           <>
@@ -430,15 +269,7 @@ export default function PlanesPage() {
                             Cargando...
                           </>
                         ) : (
-<<<<<<< HEAD
-                          <>
-                            {needsToSelectPlan() ? 'Seleccionar Plan' : 
-                             plan.price === 0 ? 'Cambiar a Gratuito' : 
-                             'Cambiar Plan'}
-                          </>
-=======
                           "Gestionar Suscripción"
->>>>>>> 655852c (new changes on the branding on the visuals, on the screens, new UI, and some changes more...)
                         )}
                       </Button>
                     )}
