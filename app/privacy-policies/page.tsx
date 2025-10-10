@@ -16,7 +16,7 @@ export default function PrivacidadPage() {
                 cEats v2
               </span>
             </Link>
-            <Link href="/terminos" className="text-sm text-blue-600 hover:text-blue-700 transition-colors">
+            <Link href="/terms-of-service" className="text-sm text-blue-600 hover:text-blue-700 transition-colors">
               Términos y Condiciones →
             </Link>
           </div>

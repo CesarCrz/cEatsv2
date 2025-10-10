@@ -16,7 +16,7 @@ export default function TerminosPage() {
                 cEats v2
               </span>
             </Link>
-            <Link href="/privacidad" className="text-sm text-blue-600 hover:text-blue-700 transition-colors">
+            <Link href="/privacy-policies" className="text-sm text-blue-600 hover:text-blue-700 transition-colors">
               Política de Privacidad →
             </Link>
           </div>
@@ -180,7 +180,7 @@ export default function TerminosPage() {
               <p className="text-gray-700 leading-relaxed">
                 Respecto de datos del consumidor final y del personal del Cliente, el Cliente actúa como Responsable y
                 el Proveedor como Encargado. Rige el{" "}
-                <Link href="/privacidad" className="text-blue-600 hover:underline">
+                <Link href="/privacy-policies" className="text-blue-600 hover:underline">
                   Anexo 1 (DPA)
                 </Link>
                 , que forma parte integral de este Contrato. El Proveedor aplicará medidas de seguridad razonables y

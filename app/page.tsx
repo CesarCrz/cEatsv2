@@ -40,7 +40,7 @@ export default function HomePage() {
               <a href="#precios" className="text-sm font-medium text-gray-700 hover:text-blue-600 transition-colors">
                 Precios
               </a>
-              <Link href="/contacto">
+              <Link href="/contact">
                 <Button variant="ghost" size="sm">
                   Contacto
                 </Button>
@@ -82,7 +82,7 @@ export default function HomePage() {
                 <a href="#precios" className="text-sm font-medium text-gray-700 hover:text-blue-600">
                   Precios
                 </a>
-                <Link href="/contacto" className="text-sm font-medium text-gray-700 hover:text-blue-600">
+                <Link href="/contact" className="text-sm font-medium text-gray-700 hover:text-blue-600">
                   Contacto
                 </Link>
                 <Link href="/login" className="text-sm font-medium text-gray-700 hover:text-blue-600">
@@ -126,7 +126,7 @@ export default function HomePage() {
                     <ArrowRight className="w-5 h-5 ml-2" />
                   </Button>
                 </Link>
-                <Link href="/contacto">
+                <Link href="/contact">
                   <Button size="lg" variant="outline" className="text-lg px-8 bg-transparent">
                     Hablar con Ventas
                   </Button>
@@ -326,7 +326,7 @@ export default function HomePage() {
                 <ArrowRight className="w-5 h-5 ml-2" />
               </Button>
             </Link>
-            <Link href="/contacto">
+            <Link href="/contact">
               <Button
                 size="lg"
                 variant="outline"
@@ -382,7 +382,7 @@ export default function HomePage() {
               <h3 className="font-semibold text-gray-900 mb-4">Empresa</h3>
               <ul className="space-y-2 text-sm text-gray-600">
                 <li>
-                  <Link href="/contacto" className="hover:text-blue-600">
+                  <Link href="/contact" className="hover:text-blue-600">
                     Contacto
                   </Link>
                 </li>
@@ -398,12 +398,12 @@ export default function HomePage() {
               <h3 className="font-semibold text-gray-900 mb-4">Legal</h3>
               <ul className="space-y-2 text-sm text-gray-600">
                 <li>
-                  <Link href="/privacidad" className="hover:text-blue-600">
+                  <Link href="/privacy-policies" className="hover:text-blue-600">
                     Privacidad
                   </Link>
                 </li>
                 <li>
-                  <Link href="/terminos" className="hover:text-blue-600">
+                  <Link href="/terms-of-service" className="hover:text-blue-600">
                     Términos
                   </Link>
                 </li>
@@ -414,13 +414,13 @@ export default function HomePage() {
           <div className="border-t border-gray-200 pt-8 flex flex-col sm:flex-row items-center justify-between gap-4">
             <p className="text-sm text-gray-600">© 2025 cEats v2. Todos los derechos reservados.</p>
             <div className="flex items-center space-x-6 text-sm text-gray-600">
-              <Link href="/privacidad" className="hover:text-blue-600">
+              <Link href="/privacy-policies" className="hover:text-blue-600">
                 Privacidad
               </Link>
-              <Link href="/terminos" className="hover:text-blue-600">
+              <Link href="/terms-of-service" className="hover:text-blue-600">
                 Términos
               </Link>
-              <Link href="/contacto" className="hover:text-blue-600">
+              <Link href="/contact" className="hover:text-blue-600">
                 Soporte
               </Link>
             </div>
