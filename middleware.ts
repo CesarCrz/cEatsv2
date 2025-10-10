@@ -12,6 +12,11 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next()
   }
   
+  // Permitir acceso a logout sin verificar sesión
+  if (path.startsWith('/logout')) {
+    return NextResponse.next()
+  }
+  
   const publicRoutes = ['/', '/login', '/signup']
   const protectedRoutes = [
     '/dashboard', 
@@ -88,7 +93,8 @@ export async function middleware(request: NextRequest) {
       }
     } else {
       // Si no hay caché o expiró, hacer fetch
-      const apiResponse = await fetch(`${request.nextUrl.origin}/api/auth/check-user-status`, {
+      const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || request.nextUrl.origin
+      const apiResponse = await fetch(`${baseUrl}/api/auth/check-user-status`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
