@@ -4,11 +4,9 @@ import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Alert, AlertDescription } from "@/components/ui/alert"
-import { useSubscription } from "@/hooks/use-subscription"
-import { useAuth } from "@/hooks/use-auth"
-import { ArrowLeft, Check, Crown, Zap, Star, Loader2, AlertTriangle, Sparkles } from "lucide-react"
+import { Loader2, Crown, Zap, Star, Check, Sparkles, LogIn } from "lucide-react"
 import Link from "next/link"
+import { createBrowserClient } from "@supabase/ssr"
 
 interface PlanFeature {
   text: string
@@ -31,19 +29,59 @@ interface Plan {
 }
 
 export default function PlanesPage() {
-  const { subscription, limits, isLoading, error, allPlans } = useSubscription()
-  const { profile } = useAuth()
-  const [checkoutLoading, setCheckoutLoading] = useState<string | null>(null)
-  const [portalLoading, setPortalLoading] = useState(false)
   const [plans, setPlans] = useState<Plan[]>([])
   const [loadingPlans, setLoadingPlans] = useState(true)
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false)
+  const [restauranteId, setRestauranteId] = useState<string | null>(null)
+  const [checkingAuth, setCheckingAuth] = useState(true)
 
+  // Verificar autenticación del usuario
+  useEffect(() => {
+    const checkAuth = async () => {
+      try {
+        const supabase = createBrowserClient(
+          process.env.NEXT_PUBLIC_SUPABASE_URL!,
+          process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+        )
+
+        const { data: { user } } = await supabase.auth.getUser()
+        
+        if (user) {
+          setIsAuthenticated(true)
+          
+          // Obtener el restaurante_id del perfil
+          const { data: profile } = await supabase
+            .from('perfiles')
+            .select('restaurante_id')
+            .eq('id', user.id)
+            .single()
+          
+          if (profile?.restaurante_id) {
+            setRestauranteId(profile.restaurante_id)
+          }
+        }
+      } catch (error) {
+        console.error('Error verificando autenticación:', error)
+      } finally {
+        setCheckingAuth(false)
+      }
+    }
+
+    checkAuth()
+  }, [])
+
+  // Cargar planes desde la API pública
   useEffect(() => {
     const loadPlans = async () => {
       try {
-        if (!allPlans) return
+        setLoadingPlans(true)
+        
+        const response = await fetch('/api/planes')
+        if (!response.ok) throw new Error('Error al cargar planes')
+        
+        const { planes } = await response.json()
 
-        const planesFormateados: Plan[] = Object.entries(allPlans).map(([key, planConfig]) => ({
+        const planesFormateados: Plan[] = Object.entries(planes).map(([key, planConfig]: [string, any]) => ({
           id: key,
           name: key,
           displayName: planConfig.nombre_display,
@@ -54,7 +92,7 @@ export default function PlanesPage() {
           maxSucursales: planConfig.max_sucursales,
           maxPedidos: planConfig.max_pedidos,
           features:
-            planConfig.caracteristicas?.map((caracteristica) => ({
+            planConfig.caracteristicas?.map((caracteristica: any) => ({
               text: caracteristica.texto,
               included: caracteristica.incluido,
             })) || [],
@@ -71,86 +109,22 @@ export default function PlanesPage() {
     }
 
     loadPlans()
-  }, [allPlans])
+  }, [])
 
-  const handleSubscribe = async (planId: string) => {
-    if (!profile?.restaurante_id) {
-      console.error("No se encontró restaurante_id")
-      return
-    }
-
-    try {
-      setCheckoutLoading(planId)
-
-      const response = await fetch("/api/stripe/checkout", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          planId,
-          restauranteId: profile.restaurante_id,
-        }),
-      })
-
-      const data = await response.json()
-
-      if (data.url) {
-        window.location.href = data.url
-      } else {
-        throw new Error(data.error || "Error al crear sesión de checkout")
-      }
-    } catch (error) {
-      console.error("Error al iniciar checkout:", error)
-      alert("Error al procesar el pago. Por favor, intenta de nuevo.")
-    } finally {
-      setCheckoutLoading(null)
+  const handleActionClick = (planId: string) => {
+    if (!isAuthenticated) {
+      // Redirigir al login con returnUrl
+      window.location.href = `/login?returnUrl=/planes`
+    } else if (restauranteId) {
+      // Redirigir a la página de planes del restaurante donde pueden suscribirse
+      window.location.href = `/dashboard/restaurantes/${restauranteId}/planes`
+    } else {
+      // Si está autenticado pero no tiene restaurante, ir a completar perfil
+      window.location.href = `/complete-profile`
     }
   }
 
-  const handleManageSubscription = async () => {
-    if (!profile?.restaurante_id) {
-      console.error("No se encontró restaurante_id")
-      return
-    }
-
-    try {
-      setPortalLoading(true)
-
-      const response = await fetch("/api/stripe/portal", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          restauranteId: profile.restaurante_id,
-        }),
-      })
-
-      const data = await response.json()
-
-      if (data.url) {
-        window.location.href = data.url
-      } else {
-        throw new Error(data.error || "Error al acceder al portal de suscripciones")
-      }
-    } catch (error) {
-      console.error("Error al acceder al portal:", error)
-      alert("Error al acceder al portal de suscripciones. Por favor, intenta de nuevo.")
-    } finally {
-      setPortalLoading(false)
-    }
-  }
-
-  const getCurrentPlan = () => {
-    return subscription?.plan_type || "trial"
-  }
-
-  const isCurrentPlan = (planId: string) => {
-    return getCurrentPlan() === planId
-  }
-
-  if (loadingPlans || isLoading) {
+  if (loadingPlans || checkingAuth) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -169,9 +143,9 @@ export default function PlanesPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center space-x-4">
-              <Link href="/dashboard">
+              <Link href="/">
                 <Button variant="ghost" size="sm" className="cursor-pointer hover:bg-blue-500/10">
-                  <ArrowLeft className="w-4 h-4" />
+                  ← Volver
                 </Button>
               </Link>
               <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-blue-800 rounded-xl flex items-center justify-center animate-glow">
@@ -189,15 +163,6 @@ export default function PlanesPage() {
       </header>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {error && (
-          <Alert className="mb-6 glass border-red-500/20 bg-red-500/10">
-            <AlertTriangle className="h-4 w-4 text-red-600" />
-            <AlertDescription className="text-red-800">
-              Error al cargar información de suscripción: {error}
-            </AlertDescription>
-          </Alert>
-        )}
-
         <div className="text-center mb-12">
           <div className="inline-flex items-center space-x-2 px-4 py-2 glass rounded-full mb-4">
             <Sparkles className="w-4 h-4 text-blue-600" />
@@ -212,85 +177,13 @@ export default function PlanesPage() {
           </p>
         </div>
 
-        {/* Current Plan Info */}
-        {subscription && (
-          <div className="mb-8">
-            <Card className="glass-strong border-blue-600/20 hover:border-blue-800/40 transition-all duration-300">
-              <CardHeader>
-                <CardTitle className="flex items-center space-x-2">
-                  <Crown className="w-5 h-5 text-blue-600" />
-                  <span>Tu Plan Actual</span>
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="font-semibold text-lg">{limits?.nombre_display}</p>
-                    <p className="text-sm text-muted-foreground">
-                      {subscription.status === "active" ? (
-                        <span className="text-green-600 flex items-center">
-                          <Check className="w-4 h-4 mr-1" />
-                          Activo
-                        </span>
-                      ) : (
-                        "Inactivo"
-                      )}
-                      {subscription.cancel_at_period_end && (
-                        <span className="text-orange-600 ml-2">(Se cancelará al final del período)</span>
-                      )}
-                    </p>
-                    {subscription.current_period_end && (
-                      <p className="text-xs text-muted-foreground mt-1">
-                        Próxima renovación: {new Date(subscription.current_period_end).toLocaleDateString()}
-                      </p>
-                    )}
-                  </div>
-                  <div className="flex items-center space-x-3">
-                    <Badge variant="outline" className="text-blue-600 border-blue-600 bg-blue-50/10">
-                      Plan Actual
-                    </Badge>
-                    {subscription.plan_type !== "trial" && (
-                      <Button
-                        onClick={handleManageSubscription}
-                        disabled={portalLoading}
-                        variant="outline"
-                        size="sm"
-                        className="border-blue-600 text-blue-600 hover:bg-blue-600 hover:text-white transition-all duration-300 bg-transparent"
-                      >
-                        {portalLoading ? (
-                          <>
-                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                            Cargando...
-                          </>
-                        ) : (
-                          "Gestionar Suscripción"
-                        )}
-                      </Button>
-                    )}
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        )}
-
-        {!subscription && (
-          <Alert className="mb-8 glass-strong border-orange-500/20 bg-orange-500/10">
-            <AlertTriangle className="h-4 w-4 text-orange-600" />
-            <AlertDescription className="text-orange-800">
-              Para comenzar a usar cEats, necesitas seleccionar un plan. Puedes comenzar con nuestro plan gratuito y
-              actualizar cuando lo necesites.
-            </AlertDescription>
-          </Alert>
-        )}
-
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mb-12">
           {plans.map((plan) => (
             <Card
               key={plan.id}
               className={`glass hover:glass-strong transition-all duration-300 transform hover:scale-[1.02] relative overflow-hidden ${
                 plan.popular ? "border-blue-500/50 shadow-xl ring-2 ring-blue-500/20" : ""
-              } ${isCurrentPlan(plan.id) ? "ring-2 ring-blue-600 ring-opacity-50" : ""}`}
+              }`}
             >
               {plan.popular && (
                 <div className="absolute top-0 right-0 bg-gradient-to-l from-blue-600 to-blue-800 text-white text-xs font-bold px-4 py-2 rounded-bl-xl">
@@ -358,37 +251,26 @@ export default function PlanesPage() {
 
                 {/* Action Button */}
                 <div className="pt-4">
-                  {isCurrentPlan(plan.id) ? (
-                    <Button disabled className="w-full bg-transparent" variant="outline">
-                      <Check className="w-4 h-4 mr-2" />
-                      Plan Actual
-                    </Button>
-                  ) : (
-                    <Button
-                      onClick={() => handleSubscribe(plan.id)}
-                      disabled={checkoutLoading !== null}
-                      className={`w-full transition-all duration-300 ${
-                        plan.popular || plan.recommended
-                          ? "bg-gradient-to-r from-blue-600 to-blue-800 hover:from-blue-700 hover:to-blue-900 shadow-lg hover:shadow-xl"
-                          : ""
-                      }`}
-                    >
-                      {checkoutLoading === plan.id ? (
-                        <>
-                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                          Procesando...
-                        </>
-                      ) : (
-                        <>
-                          {plan.price === 0
-                            ? "Comenzar Gratis"
-                            : getCurrentPlan() === "trial"
-                              ? "Actualizar Plan"
-                              : "Cambiar Plan"}
-                        </>
-                      )}
-                    </Button>
-                  )}
+                  <Button
+                    onClick={() => handleActionClick(plan.id)}
+                    className={`w-full transition-all duration-300 ${
+                      plan.popular || plan.recommended
+                        ? "bg-gradient-to-r from-blue-600 to-blue-800 hover:from-blue-700 hover:to-blue-900 shadow-lg hover:shadow-xl"
+                        : ""
+                    }`}
+                  >
+                    {!isAuthenticated ? (
+                      <>
+                        <LogIn className="w-4 h-4 mr-2" />
+                        Iniciar sesión para suscribirse
+                      </>
+                    ) : (
+                      <>
+                        <Zap className="w-4 h-4 mr-2" />
+                        Ver opciones de suscripción
+                      </>
+                    )}
+                  </Button>
                 </div>
               </CardContent>
             </Card>
@@ -404,7 +286,7 @@ export default function PlanesPage() {
               <p className="text-muted-foreground">
                 ¿Necesitas ayuda para elegir el plan adecuado? Nuestro equipo está aquí para ayudarte.
               </p>
-              <Link href="/contacto">
+              <Link href="/contact">
                 <Button className="mt-4 bg-gradient-to-r from-blue-600 to-blue-800 hover:from-blue-700 hover:to-blue-900">
                   Contáctanos
                 </Button>

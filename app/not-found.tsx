@@ -55,7 +55,7 @@ export default function NotFound() {
               variant="outline"
               className="border-blue-600 text-blue-600 hover:bg-blue-50 bg-transparent"
             >
-              <Link href="/contacto">
+              <Link href="/contact">
                 <Mail className="w-5 h-5 mr-2" />
                 Contactar soporte
               </Link>
@@ -69,13 +69,13 @@ export default function NotFound() {
               <Link href="/planes" className="text-blue-600 hover:text-blue-800 hover:underline">
                 Planes y precios
               </Link>
-              <Link href="/contacto" className="text-blue-600 hover:text-blue-800 hover:underline">
+              <Link href="/contact" className="text-blue-600 hover:text-blue-800 hover:underline">
                 Contacto
               </Link>
-              <Link href="/terminos" className="text-blue-600 hover:text-blue-800 hover:underline">
+              <Link href="/terms-of-service" className="text-blue-600 hover:text-blue-800 hover:underline">
                 Términos y condiciones
               </Link>
-              <Link href="/privacidad" className="text-blue-600 hover:text-blue-800 hover:underline">
+              <Link href="/privacy-policies" className="text-blue-600 hover:text-blue-800 hover:underline">
                 Política de privacidad
               </Link>
             </div>

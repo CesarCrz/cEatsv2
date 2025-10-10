@@ -17,12 +17,11 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next()
   }
   
-  const publicRoutes = ['/', '/login', '/signup']
+  const publicRoutes = ['/', '/login', '/signup', '/planes']
   const protectedRoutes = [
     '/dashboard', 
     '/complete-profile',
-    '/configuracion',
-    '/planes'
+    '/configuracion'
   ]
   
   let response = NextResponse.next({
