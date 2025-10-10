@@ -13,13 +13,13 @@ export function Footer() {
             <span className="text-sm text-muted-foreground">© 2025 cEats v2. Todos los derechos reservados.</span>
           </div>
           <div className="flex items-center space-x-6 text-sm text-muted-foreground">
-            <Link href="/privacidad" className="hover:text-blue-600 transition-colors">
+            <Link href="/privacy-policies" className="hover:text-blue-600 transition-colors">
               Privacidad
             </Link>
-            <Link href="/terminos" className="hover:text-blue-600 transition-colors">
+            <Link href="/terms-of-service" className="hover:text-blue-600 transition-colors">
               Términos
             </Link>
-            <Link href="/contacto" className="hover:text-blue-600 transition-colors">
+            <Link href="/contact" className="hover:text-blue-600 transition-colors">
               Soporte
             </Link>
           </div>
