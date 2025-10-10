@@ -482,65 +482,23 @@ export default function SignupPage() {
                   />
                 </div>
 
-                <div 
-                  className={`
-                    relative p-5 rounded-xl transition-all duration-300 cursor-pointer group
-                    ${formData.aceptaTerminos 
-                      ? 'bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-500 shadow-lg shadow-blue-200/50' 
-                      : 'bg-white border-2 border-gray-300 hover:border-blue-400 hover:shadow-md'
-                    }
-                  `}
-                  onClick={() => handleInputChange("aceptaTerminos", !formData.aceptaTerminos)}
-                >
-                  {/* Ícono de check en la esquina cuando está activado */}
-                  {formData.aceptaTerminos && (
-                    <div className="absolute -top-2 -right-2 w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center animate-in zoom-in-50 duration-200">
-                      <CheckCircle className="w-4 h-4 text-white" />
-                    </div>
-                  )}
-                  
-                  <div className="flex items-start space-x-4">
-                    <Checkbox
-                      id="terminos"
-                      checked={formData.aceptaTerminos}
-                      onCheckedChange={(checked) => handleInputChange("aceptaTerminos", checked as boolean)}
-                      className={`
-                        cursor-pointer mt-0.5 w-5 h-5 transition-all duration-200
-                        ${formData.aceptaTerminos ? 'border-blue-500' : 'border-gray-400'}
-                      `}
-                    />
-                    <div className="flex-1">
-                      <Label 
-                        htmlFor="terminos" 
-                        className={`
-                          text-sm leading-relaxed cursor-pointer block transition-colors duration-200
-                          ${formData.aceptaTerminos ? 'text-gray-900 font-medium' : 'text-gray-700'}
-                        `}
-                      >
-                        Acepto los{" "}
-                        <Link 
-                          href="/terms-of-service" 
-                          className="text-blue-600 hover:text-blue-700 underline font-semibold cursor-pointer hover:underline-offset-4 transition-all"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          Términos y Condiciones
-                        </Link>{" "}
-                        y la{" "}
-                        <Link 
-                          href="/privacy-policies" 
-                          className="text-blue-600 hover:text-blue-700 underline font-semibold cursor-pointer hover:underline-offset-4 transition-all"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          Política de Privacidad
-                        </Link>
-                      </Label>
-                      {!formData.aceptaTerminos && (
-                        <p className="text-xs text-gray-500 mt-2 group-hover:text-gray-700 transition-colors">
-                          👆 Haz clic aquí para aceptar y continuar
-                        </p>
-                      )}
-                    </div>
-                  </div>
+                <div className="flex items-center space-x-3 p-4 rounded-lg border-3 border-primary/60 bg-primary/10 hover:border-primary/80 hover:bg-primary/15 transition-all duration-300">
+                  <Checkbox
+                    id="terminos"
+                    checked={formData.aceptaTerminos}
+                    onCheckedChange={(checked) => handleInputChange("aceptaTerminos", checked as boolean)}
+                    className="cursor-pointer"
+                  />
+                  <Label htmlFor="terminos" className="text-sm leading-relaxed cursor-pointer">
+                    Acepto los{" "}
+                    <Link href="/terms-of-service" className="text-primary hover:underline font-medium cursor-pointer">
+                      Términos y Condiciones
+                    </Link>{" "}
+                    y la{" "}
+                    <Link href="/privacy-policies" className="text-primary hover:underline font-medium cursor-pointer">
+                      Política de Privacidad
+                    </Link>
+                  </Label>
                 </div>
 
                 <div className="flex gap-4">
