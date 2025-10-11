@@ -412,7 +412,7 @@ export default function HomePage() {
           </div>
 
           <div className="border-t border-gray-200 pt-8 flex flex-col sm:flex-row items-center justify-between gap-4">
-            <p className="text-sm text-gray-600">© 2025 cEats v2. Todos los derechos reservados.</p>
+            <p className="text-sm text-gray-600">© 2025 cEats v2 OPERADO POR Paulo César Cruz Hernández. Todos los derechos reservados.</p>
             <div className="flex items-center space-x-6 text-sm text-gray-600">
               <Link href="/privacy-policies" className="hover:text-blue-600">
                 Privacidad
