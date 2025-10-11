@@ -10,7 +10,7 @@ export function Footer() {
             <div className="w-8 h-8 bg-gradient-to-br from-blue-600 to-blue-800 rounded-lg flex items-center justify-center">
               <ChefHat className="w-4 h-4 text-white" />
             </div>
-            <span className="text-sm text-muted-foreground">© 2025 cEats v2. Todos los derechos reservados.</span>
+            <span className="text-sm text-muted-foreground"> cEats OPERADO POR Paulo César Cruz Hernández © 2025. Todos los derechos reservados.</span>
           </div>
           <div className="flex items-center space-x-6 text-sm text-muted-foreground">
             <Link href="/privacy-policies" className="hover:text-blue-600 transition-colors">
