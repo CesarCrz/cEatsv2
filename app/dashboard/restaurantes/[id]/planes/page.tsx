@@ -144,7 +144,7 @@ export default function PlanesPage() {
   }
 
   const getCurrentPlan = () => {
-    return subscription?.plan_type || "trial"
+    return subscription?.plan_type || null // ✅ Devolver null si no hay suscripción
   }
 
   const isCurrentPlan = (planId: string) => {
@@ -255,7 +255,7 @@ export default function PlanesPage() {
                     <Badge variant="outline" className="text-blue-600 border-blue-600 bg-blue-50/10">
                       Plan Actual
                     </Badge>
-                    {subscription.plan_type !== "trial" && (
+                    {subscription.plan_type !== "trial" && subscription.stripe_customer_id && (
                       <Button
                         onClick={handleManageSubscription}
                         disabled={portalLoading}
@@ -386,11 +386,13 @@ export default function PlanesPage() {
                         </>
                       ) : (
                         <>
-                          {plan.price === 0
-                            ? "Comenzar Gratis"
-                            : getCurrentPlan() === "trial"
-                              ? "Actualizar Plan"
-                              : "Cambiar Plan"}
+                          {!getCurrentPlan()
+                            ? "Seleccionar Plan" // ✅ Si no hay plan activo
+                            : plan.price === 0
+                              ? "Comenzar Gratis"
+                              : getCurrentPlan() === "trial"
+                                ? "Actualizar Plan"
+                                : "Cambiar Plan"}
                         </>
                       )}
                     </Button>

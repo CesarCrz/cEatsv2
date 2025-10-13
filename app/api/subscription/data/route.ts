@@ -34,7 +34,8 @@ export async function GET(request: NextRequest) {
 
     if (subError && subError.code !== 'PGRST116') throw subError
 
-    const currentPlan = subscriptionData?.plan_type || 'trial'
+    // ✅ NO asumir 'trial' por defecto - usar null si no hay suscripción
+    const currentPlan = subscriptionData?.plan_type || null
 
     // 2. Obtener límites de planes
     const { data: configData, error: configError } = await supabaseAdmin
@@ -77,7 +78,7 @@ export async function GET(request: NextRequest) {
 
     const data = {
         subscription: subscriptionData,
-        limits: planesLimites[currentPlan],
+        limits: currentPlan ? planesLimites[currentPlan] : null, // ✅ Devolver null si no hay plan
         usage: usageData,
         allPlans: planesLimites,
         hasActiveSubscription: !!subscriptionData,

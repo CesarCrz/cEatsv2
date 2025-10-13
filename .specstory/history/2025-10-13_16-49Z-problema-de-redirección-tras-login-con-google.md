@@ -148,3 +148,322 @@ git push origin main
 
 ---
 
+_**User (2025-10-13 17:12Z)**_
+
+ya no entendí:
+macuniterra@iMac-de-macuniterra ceats-v2 2 % git fetch origin
+remote: Enumerating objects: 13, done.
+remote: Counting objects: 100% (13/13), done.
+remote: Compressing objects: 100% (8/8), done.
+remote: Total 8 (delta 6), reused 0 (delta 0), pack-reused 0 (from 0)
+Unpacking objects: 100% (8/8), 2.15 KiB | 11.00 KiB/s, done.
+From https://github.com/CesarCrz/cEatsv2
+   3668a72..ab0425c  main       -> origin/main
+macuniterra@iMac-de-macuniterra ceats-v2 2 % git log HEAD..origin/main --oneline
+ab0425c (origin/main) Update footer text with operator information
+804477e Update footer text with new copyright information
+macuniterra@iMac-de-macuniterra ceats-v2 2 % git pull --rebase origin main
+error: cannot pull with rebase: You have unstaged changes.
+error: please commit or stash them.
+macuniterra@iMac-de-macuniterra ceats-v2 2 % git commit -m "trying the change on the first login"
+On branch main
+Your branch and 'origin/main' have diverged,
+and have 1 and 2 different commits each, respectively.
+  (use "git pull" to merge the remote branch into yours)
+
+Changes not staged for commit:
+  (use "git add <file>..." to update what will be committed)
+  (use "git restore <file>..." to discard changes in working directory)
+        modified:   ".specstory/history/2025-10-13_16-49Z-problema-de-redirecci\303\263n-tras-login-con-google.md"
+
+no changes added to commit (use "git add" and/or "git commit -a")
+
+---
+
+_**Assistant (copilot/claude-sonnet-4.5)**_
+
+Ah, ahora veo el problema. Tienes cambios sin guardar. Te explico paso a paso qué hacer:
+
+## 📊 Situación:
+- En GitHub hay 2 commits nuevos (cambios al footer)
+- Tú tienes 1 commit local (tu fix del login)
+- Además tienes 1 archivo modificado que no has guardado
+
+## ✅ Solución paso a paso: 
+
+---
+
+_**User (2025-10-13 17:16Z)**_
+
+muy bien, oye, ahora un detalle, veo que en celular los íconos no me salen, a que se debe esto??
+
+otra cosa, también veo que al crear una nueva cuenta me redirige al: /restaurantes/[id]/planes y por default al entrar me pone que estoy en el plan de prueba, pero esto no debe ser así porque aunque sea en el plan prueba deben escogerlo para que se registre en la base de datos y se cree su suscripcion!!
+
+---
+
+_**Assistant (copilot/claude-sonnet-4.5)**_
+
+Veo dos problemas importantes que debemos solucionar:
+
+## 1️⃣ Iconos no se muestran en celular
+## 2️⃣ Plan de Prueba se asigna automáticamente sin crear suscripción
+
+Déjame revisar los archivos relevantes para entender ambos problemas:
+
+Ahora voy a revisar cómo se maneja la suscripción inicial:
+
+Perfecto, ahora entiendo ambos problemas. Vamos a solucionarlos:
+
+---
+
+## 🔧 **SOLUCIÓN 1: Iconos no se muestran en celular**
+
+El problema es que los iconos de Lucide React no están optimizados para SSR en algunos casos. Vamos a mejorar esto:
+
+````typescript
+// ...existing code...
+import { Check, AlertCircle, Crown, Zap } from 'lucide-react'
+
+// ...existing code...
+
+            {/* Lista de características */}
+            <div className="space-y-3">
+              {plan.caracteristicas.map((caracteristica, idx) => (
+                <div key={idx} className="flex items-start gap-2">
+                  <Check 
+                    className="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5" 
+                    strokeWidth={2.5}
+                    aria-hidden="true"
+                  />
+                  <span className="text-sm text-gray-700">{caracteristica}</span>
+                </div>
+              ))}
+            </div>
+
+// ...existing code...
+````
+
+---
+
+## 🔧 **SOLUCIÓN 2: No asignar plan de prueba automáticamente**
+
+Necesitamos hacer varios cambios:
+
+### **Paso 1: Modificar el callback para NO crear suscripción automáticamente**
+
+````typescript
+// ...existing code...
+
+        // Solo creamos el perfil básico, SIN suscripción
+        const { error: insertError } = await supabase
+          .from('perfiles')
+          .insert({
+            id: user.id,
+            email: user.email,
+            nombre: user.user_metadata.full_name || user.email?.split('@')[0],
+            foto_url: user.user_metadata.avatar_url,
+            is_first_login: true,
+            created_at: new Date().toISOString()
+          })
+
+        if (insertError) {
+          console.error('Error insertando perfil:', insertError)
+          return NextResponse.redirect(`${requestUrl.origin}/auth/error`)
+        }
+
+        // NO crear suscripción aquí - el usuario debe elegir un plan
+      }
+
+      // Verificar si necesita completar perfil
+      const { data: perfilData } = await supabase
+        .from('perfiles')
+        .select('restaurante_id, telefono, fecha_nacimiento')
+        .eq('id', user.id)
+        .single()
+
+      // Si falta información crítica, redirigir a complete-profile
+      if (!perfilData?.restaurante_id || !perfilData?.telefono || !perfilData?.fecha_nacimiento) {
+        return NextResponse.redirect(`${requestUrl.origin}/complete-profile`)
+      }
+
+      // Verificar si tiene una suscripción activa
+      const { data: suscripcion } = await supabase
+        .from('suscripciones')
+        .select('*')
+        .eq('restaurante_id', perfilData.restaurante_id)
+        .single()
+
+      // Si NO tiene suscripción, redirigir a planes
+      if (!suscripcion) {
+        return NextResponse.redirect(`${requestUrl.origin}/restaurantes/${perfilData.restaurante_id}/planes`)
+      }
+
+      // Si todo está completo, ir al dashboard
+      return NextResponse.redirect(`${requestUrl.origin}/dashboard`)
+
+// ...existing code...
+````
+
+### **Paso 2: Actualizar complete-profile para NO crear suscripción**
+
+````typescript
+// ...existing code...
+
+    // Actualizar perfil
+    const { error: perfilError } = await supabase
+      .from('perfiles')
+      .update({
+        nombre,
+        telefono,
+        fecha_nacimiento,
+        restaurante_id: restaurante.id,
+        is_first_login: false,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', userId)
+
+    if (perfilError) {
+      console.error('Error actualizando perfil:', perfilError)
+      return NextResponse.json(
+        { error: 'Error al actualizar perfil' },
+        { status: 500 }
+      )
+    }
+
+    // NO crear suscripción automáticamente
+    // El usuario debe elegir un plan en la página de planes
+
+    return NextResponse.json({
+      message: 'Perfil completado exitosamente',
+      restaurante_id: restaurante.id
+    })
+
+// ...existing code...
+````
+
+### **Paso 3: Actualizar la página de complete-profile para redirigir a planes**
+
+````typescript
+// ...existing code...
+
+      if (response.ok) {
+        const data = await response.json()
+        toast.success('¡Perfil completado exitosamente!')
+        
+        // Redirigir a la página de planes para que elija su suscripción
+        setTimeout(() => {
+          router.push(`/restaurantes/${data.restaurante_id}/planes`)
+        }, 1000)
+      }
+
+// ...existing code...
+````
+
+### **Paso 4: Actualizar la página de planes para manejar la selección inicial**
+
+````typescript
+// ...existing code...
+
+  const handleActualizarPlan = async (planId: number) => {
+    try {
+      setIsLoading(true)
+
+      const response = await fetch(`/api/restaurantes/${params.id}/suscripcion`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          plan_id: planId,
+        }),
+      })
+
+      if (!response.ok) {
+        throw new Error('Error al actualizar el plan')
+      }
+
+      const data = await response.json()
+      
+      toast.success(data.message || '¡Plan actualizado exitosamente!')
+      
+      // Esperar un momento y redirigir al dashboard
+      setTimeout(() => {
+        router.push('/dashboard')
+        router.refresh()
+      }, 1500)
+
+    } catch (error) {
+      console.error('Error:', error)
+      toast.error('Error al actualizar el plan. Por favor, intenta de nuevo.')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+// ...existing code...
+
+          <button
+            onClick={() => handleActualizarPlan(plan.id)}
+            disabled={isLoading}
+            className={`w-full py-3 px-4 rounded-lg font-medium transition-all duration-200 ${
+              plan.recomendado
+                ? 'bg-blue-600 text-white hover:bg-blue-700 shadow-lg hover:shadow-xl'
+                : 'bg-gray-100 text-gray-900 hover:bg-gray-200'
+            } disabled:opacity-50 disabled:cursor-not-allowed`}
+          >
+            {isLoading ? 'Procesando...' : 'Seleccionar Plan'}
+          </button>
+
+// ...existing code...
+````
+
+---
+
+## 📋 **Resumen de cambios:**
+
+1. **Iconos mejorados**: Agregamos propiedades `strokeWidth` y `aria-hidden` para mejor renderizado
+2. **Sin plan automático**: El callback YA NO crea una suscripción de prueba
+3. **Flujo correcto**: 
+   - Login → Complete Profile → **Seleccionar Plan** → Dashboard
+4. **Todos los usuarios deben elegir un plan** (incluso el de prueba)
+
+¿Quieres que implemente estos cambios?
+
+---
+
+_**User (2025-10-13 17:19Z)**_
+
+de acuerdo, implementa estos cambios para ver que tal funcionan!
+
+---
+
+_**Assistant (copilot/claude-sonnet-4.5)**_
+
+¡Perfecto! Voy a implementar todos los cambios. Déjame empezar: Perfecto, ahora voy a actualizar el callback para verificar si tiene suscripción y redirigir a planes si no la tiene: 
+```
+
+```
+Ahora veo que el `route.ts` ya está bien - no crea suscripción automáticamente. Solo necesito asegurarme de que retorna el `restaurante_id` correctamente. Voy a actualizar la página de complete-profile para que redirija correctamente: 
+```
+
+```
+Ahora voy a buscar la página de planes: Perfecto, ahora voy a mejorar los iconos y ajustar el componente. Voy a hacer las mejoras necesarias: 
+```
+
+```
+Ahora necesito buscar si existe una API para crear suscripciones sin Stripe (para el plan de prueba): Veo que no hay una API para crear suscripciones directamente. Necesito crearla para manejar el plan de prueba sin Stripe. Déjame crear el endpoint: 
+
+---
+
+_**User (2025-10-13 17:20Z)**_
+
+si hay un endpoint para poder crear suscripciones por favor checa bien el #file:api 
+
+---
+
+_**Assistant (copilot/claude-sonnet-4.5)**_
+
+Déjame revisar todos los archivos en la carpeta API para encontrar el endpoint de suscripciones: No veo un endpoint específico para crear suscripciones directamente. Voy a buscar en las carpetas para ver si hay algo que me perdí: Perfecto, no existe un endpoint para crear suscripciones directamente. Necesito crearlo. Voy a crear el endpoint que falta: Ahora voy a actualizar la página de planes para usar este nuevo endpoint cuando se seleccione el plan de prueba (o cualquier plan gratuito): 
+
+---
+

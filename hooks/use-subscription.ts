@@ -30,6 +30,8 @@ interface Subscription {
   status: string
   current_period_end: string
   cancel_at_period_end: boolean
+  stripe_customer_id?: string
+  created_at?: string
 }
 
 interface Usage {
@@ -72,8 +74,8 @@ export function useSubscription() {
         const { plans } = await response.json()
         setAllPlans(plans)
         
-        // Plan trial por defecto
-        setLimits(plans['trial'])
+        // ✅ NO asumir plan trial por defecto - devolver null
+        setLimits(null)
         setSubscription(null)
         setUsage({ sucursales_activas: 0, pedidos_procesados: 0 })
         
