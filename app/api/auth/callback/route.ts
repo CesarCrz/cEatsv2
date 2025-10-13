@@ -23,7 +23,7 @@ export async function GET(request: Request) {
     // Verificar si el usuario ya existe en user_profiles
     const { data: existingProfile, error: profileError } = await supabase
       .from('user_profiles')
-      .select('id, restaurante_id, is_first_login')
+      .select('id, restaurante_id, is_first_login, telefono, fecha_nacimiento')
       .eq('id', data.user.id)
       .single()
     
@@ -50,12 +50,17 @@ export async function GET(request: Request) {
         return NextResponse.redirect(`${baseUrl}/login?error=profile_creation_error`)
       }
       
-      // Redirigir a completar perfil
+      // Redirigir a completar perfil porque es un nuevo usuario
       return NextResponse.redirect(`${baseUrl}/complete-profile`)
     } 
     
-    // Si existe pero no tiene restaurante o es primer login, completar perfil
-    if (!existingProfile.restaurante_id || existingProfile.is_first_login) {
+    // Verificar si falta información crítica del perfil
+    const needsToCompleteProfile = !existingProfile.restaurante_id || 
+                                    !existingProfile.telefono || 
+                                    !existingProfile.fecha_nacimiento
+    
+    // Si falta información crítica, redirigir a completar perfil
+    if (needsToCompleteProfile) {
       return NextResponse.redirect(`${baseUrl}/complete-profile`)
     }
     

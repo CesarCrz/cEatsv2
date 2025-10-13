@@ -89,7 +89,7 @@ export async function POST(request: Request) {
         country_code: countryCode,
         fecha_nacimiento: fechaNacimiento,
         restaurante_id: restaurante.id,
-        //is_first_login: true, // Marcar que ya completó el primer login
+        is_first_login: false, // Marcar que ya completó el primer login
         updated_at: new Date().toISOString()
       })
       .eq('id', user.id)
