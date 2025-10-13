@@ -463,7 +463,7 @@ export default function RestauranteDashboard() {
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="glass-strong border-white/20">
-                    <DropdownMenuItem onClick={() => router.push("/planes")}>
+                    <DropdownMenuItem onClick={() => router.push("/dashboard/restaurantes/[id]/planes")}>
                       <CreditCard className="mr-2 h-4 w-4" />
                       Planes
                     </DropdownMenuItem>

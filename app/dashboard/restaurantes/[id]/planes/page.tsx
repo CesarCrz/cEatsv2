@@ -89,7 +89,7 @@ export default function PlanesPage() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          planId,
+          planType: planId, // ✅ Enviar como planType, no planId
           restauranteId: profile.restaurante_id,
         }),
       })

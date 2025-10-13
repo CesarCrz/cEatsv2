@@ -50,11 +50,15 @@ export default function PlanesPage() {
           setIsAuthenticated(true)
           
           // Obtener el restaurante_id del perfil
-          const { data: profile } = await supabase
-            .from('perfiles')
+          const { data: profile, error: profileError } = await supabase
+            .from('user_profiles') // ✅ Nombre correcto de la tabla
             .select('restaurante_id')
             .eq('id', user.id)
             .single()
+          
+          if (profileError) {
+            console.error('Error obteniendo perfil:', profileError)
+          }
           
           if (profile?.restaurante_id) {
             setRestauranteId(profile.restaurante_id)
