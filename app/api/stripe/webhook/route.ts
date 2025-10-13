@@ -77,12 +77,42 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session, 
         const priceId = subscription.items.data[0].price.id
         const planType = mapPriceIdToPlanType(priceId)
 
+        // Intentar obtener las fechas de Stripe, si no están disponibles, usar fechas actuales
+        let periodStartTimestamp = subscription.current_period_start
+        let periodEndTimestamp = subscription.current_period_end
+
+        // Si no están disponibles directamente, intentar desde items
+        if (!periodStartTimestamp && subscription.items?.data?.[0]) {
+            const item = subscription.items.data[0]
+            periodStartTimestamp = item.current_period_start
+            periodEndTimestamp = item.current_period_end
+        }
+
+        // Si aún no tenemos fechas, crear nuevas basadas en la fecha actual
+        let periodStart: Date
+        let periodEnd: Date
+
+        if (periodStartTimestamp && periodEndTimestamp) {
+            // Usar fechas de Stripe si están disponibles
+            periodStart = new Date(periodStartTimestamp * 1000)
+            periodEnd = new Date(periodEndTimestamp * 1000)
+            console.log('📅 Usando fechas de Stripe')
+        } else {
+            // Crear fechas nuevas: inicio ahora, fin en 30 días
+            periodStart = new Date()
+            periodEnd = new Date()
+            periodEnd.setDate(periodEnd.getDate() + 30) // 30 días desde ahora
+            console.log('📅 Creando fechas nuevas (fechas de Stripe no disponibles)')
+        }
+
         console.log('📋 Procesando suscripción:', {
             priceId,
             planType,
             restauranteId,
-            current_period_start: subscription.current_period_start,
-            current_period_end: subscription.current_period_end
+            periodStart: periodStart.toISOString(),
+            periodEnd: periodEnd.toISOString(),
+            subscription_status: subscription.status,
+            subscription_id: subscription.id
         })
 
         // Obtener información del restaurante y usuario
@@ -110,19 +140,6 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session, 
                 userEmail = userProfile.email
                 userName = userProfile.nombre || 'Usuario'
             }
-        }
-
-        // Convertir timestamps de Stripe (segundos desde epoch) a ISO strings
-        const periodStart = new Date(subscription.current_period_start * 1000)
-        const periodEnd = new Date(subscription.current_period_end * 1000)
-
-        // Verificar que las fechas sean válidas antes de convertir
-        if (isNaN(periodStart.getTime()) || isNaN(periodEnd.getTime())) {
-            console.error('❌ Fechas inválidas:', {
-                current_period_start: subscription.current_period_start,
-                current_period_end: subscription.current_period_end
-            })
-            throw new Error('Invalid date values from Stripe subscription')
         }
 
         console.log('📅 Fechas convertidas:', {

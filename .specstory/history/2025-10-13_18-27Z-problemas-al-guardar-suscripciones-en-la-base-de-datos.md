@@ -2433,7 +2433,7 @@ El error que tenías era porque las fechas de Stripe vienen en **segundos** desd
 
 ---
 
-_**User (2025-10-13 20:46Z)**_
+_**User (2025-10-13 20:50Z)**_
 
 perdon aplicalo ahora si a mi codigo por favor!!
 
@@ -2446,6 +2446,188 @@ _**Assistant (copilot/claude-sonnet-4.5)**_
 
 ```
 Ahora necesito buscar la parte donde se usa `subscription.current_period_end` para el email: 
+```
+
+```
+Ahora voy a actualizar la función `handleSubscriptionUpdated`: 
+```
+
+```
+Ahora voy a actualizar el archivo verify-session: 
+```
+
+```
+Ahora necesito buscar donde se usa `subscription.current_period_end` para el email en verify-session: 
+```
+
+```
+Ahora necesito agregar un log adicional al inicio de verify-session: 
+```
+
+```
+Ahora voy a revisar también el final del archivo verify-session para agregar más detalles en el catch de error: 
+```
+
+```
+Ahora voy a verificar que no haya errores: ¡Perfecto! He aplicado todos los cambios al código. Aquí está el resumen de lo que se corrigió:
+
+## ✅ Cambios Aplicados
+
+### 1. **Webhook de Stripe** (`route.ts`)
+
+**En `handleCheckoutSessionCompleted`:**
+- ✅ Agregué logs para mostrar los timestamps originales de Stripe
+- ✅ Convertí las fechas a objetos Date antes de usarlas: `periodStart` y `periodEnd`
+- ✅ Agregué validación con `isNaN()` para detectar fechas inválidas
+- ✅ Si las fechas son inválidas, se muestra un error detallado y se lanza una excepción
+- ✅ Se usan las variables `periodStart` y `periodEnd` en lugar de convertir múltiples veces
+- ✅ Logs con emojis para facilitar el debugging (📅 para fechas)
+
+**En `handleSubscriptionUpdated`:**
+- ✅ Mismo patrón de validación de fechas
+- ✅ Si las fechas son inválidas, retorna early sin actualizar
+
+### 2. **Verify Session** (`route.ts`)
+
+- ✅ Agregué log `🔍 Verificando sesión` al inicio
+- ✅ Logs de timestamps originales de Stripe
+- ✅ Validación de fechas con `isNaN()` antes de guardar
+- ✅ Si las fechas son inválidas, retorna un error 500 con detalles
+- ✅ Logs de fechas convertidas para debugging
+- ✅ Se usa `periodEnd` en lugar de reconvertir para el email
+- ✅ Log cuando la suscripción ya existe
+- ✅ Mejor manejo de errores con detalles en el response
+
+## 🔍 ¿Qué soluciona esto?
+
+El error **"Invalid time value"** ocurría porque:
+1. Los timestamps de Stripe vienen en **segundos** desde epoch
+2. JavaScript espera **milisegundos**, por eso multiplicamos por 1000
+3. Si algo falla en la conversión, ahora lo detectamos y mostramos un error claro
+
+## 📊 Ahora verás en los logs:
+
+```
+📋 Procesando suscripción: { priceId: "price_xxx", planType: "standard", current_period_start: 1234567890, current_period_end: 1234567890 }
+📅 Fechas convertidas: { periodStart: "2025-10-13T...", periodEnd: "2025-11-13T..." }
+✅ Suscripción guardada exitosamente
+```
+
+¡Todo listo! Ahora cuando hagas un pago, deberías ver logs detallados y no deberías tener el error de "Invalid time value". 🚀
+
+---
+
+_**User (2025-10-13 20:57Z)**_
+
+no se solucionó mira:
+✅ Estado del usuario: { isVerified: true, hasExpiredCode: false, profileExists: true }
+ ⚠ Unsupported metadata viewport is configured in metadata export in /dashboard/restaurantes/edd20dec-9a57-4ea2-96b2-1282a5a31dc3/success. Please move it to viewport export instead.
+Read more: https://nextjs.org/docs/app/api-reference/functions/generate-viewport
+🔍 Verificando sesión: cs_test_a1QWTg7tsaI5ddWCstaYWnXG6kMsF5NP29fouUbPWZGzmuUmwmLlKN7zfc
+⚠️ Suscripción no encontrada, creando desde verify-session (respaldo del webhook)
+📋 Creando suscripción desde verify-session: {
+  priceId: 'price_1S2cqiGUALJmASwdYuvUzM2A',
+  planType: 'premium',
+  restauranteId: 'edd20dec-9a57-4ea2-96b2-1282a5a31dc3',
+  current_period_start: undefined,
+  current_period_end: undefined
+}
+❌ Fechas inválidas: { current_period_start: undefined, current_period_end: undefined }
+
+
+---
+
+_**Assistant (copilot/claude-sonnet-4.5)**_
+
+Ah, el problema es que `current_period_start` y `current_period_end` están viniendo como `undefined`. Esto significa que la suscripción de Stripe no tiene esas propiedades directamente disponibles. Necesitamos verificar la estructura de la respuesta de Stripe.
+
+El problema es que cuando recuperamos la suscripción, puede que no tengamos acceso directo a esas propiedades. Déjame agregar más logs y una solución alternativa: 
+```
+
+```
+
+```
+
+```
+Ahora hagamos lo mismo en el webhook: 
+```
+
+```
+
+```
+
+```
+Ahora voy a verificar que no haya errores: Perfecto! Ahora los cambios están aplicados. Te explico qué hice:
+
+## 🔧 Cambios Realizados
+
+### Problema Identificado:
+Los campos `current_period_start` y `current_period_end` están viniendo como `undefined` desde Stripe. Esto puede pasar dependiendo de la versión de la API de Stripe o cómo se recupera la suscripción.
+
+### Soluciones Implementadas:
+
+1. **Log completo de la suscripción**: 
+   - Agregué `JSON.stringify(subscription, null, 2)` para ver toda la estructura de datos que viene de Stripe
+   - Esto nos ayudará a identificar dónde están realmente las fechas
+
+2. **Búsqueda alternativa de fechas**:
+   ```typescript
+   // Intentar obtener las fechas de diferentes formas
+   let periodStartTimestamp = subscription.current_period_start
+   let periodEndTimestamp = subscription.current_period_end
+
+   // Si no están disponibles directamente, intentar desde items
+   if (!periodStartTimestamp && subscription.items?.data?.[0]) {
+       const item = subscription.items.data[0]
+       periodStartTimestamp = item.current_period_start
+       periodEndTimestamp = item.current_period_end
+   }
+   ```
+
+3. **Validación temprana**:
+   - Ahora verificamos que `periodStartTimestamp` y `periodEndTimestamp` existan **antes** de intentar crear objetos Date
+   - Si no existen, mostramos las claves disponibles en el objeto subscription
+
+4. **Logs detallados**:
+   - Log de las keys del objeto subscription si fallan los timestamps
+   - Log del status y ID de la suscripción
+
+## 🧪 Próximos Pasos:
+
+Cuando hagas un nuevo pago, verás en los logs algo como:
+```
+🔍 Suscripción completa de Stripe: { ... todo el objeto ... }
+```
+
+Esto nos permitirá ver exactamente qué propiedades tiene el objeto y dónde están las fechas. Con esa información podré ajustar el código para obtenerlas correctamente.
+
+**Por favor, haz otro intento de pago y compárteme los logs completos** para que pueda ver la estructura exacta del objeto subscription que devuelve Stripe. 🔍
+
+---
+
+_**User (2025-10-13 20:58Z)**_
+
+o portque no simplemente creamos una nueva fecha para ello? no sería mejor?
+
+---
+
+_**Assistant (copilot/claude-sonnet-4.5)**_
+
+¡Excelente idea! Tienes razón, podemos usar la fecha actual como `current_period_start` y calcular `current_period_end` basándonos en el periodo de facturación (típicamente 30 días). Esto es mucho más simple y confiable.
+
+Voy a actualizar el código: 
+```
+
+```
+Ahora voy a eliminar el log largo de JSON.stringify que ya no necesitamos: 
+```
+
+```
+Ahora hago lo mismo en verify-session: 
+```
+
+```
+
 
 ---
 
