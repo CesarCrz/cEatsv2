@@ -20,6 +20,8 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    console.log('🔍 Verificando sesión:', sessionId)
+
     // Recuperar la sesión de Stripe
     const session = await stripe.checkout.sessions.retrieve(sessionId)
 
@@ -62,7 +64,9 @@ export async function POST(request: NextRequest) {
       console.log('📋 Creando suscripción desde verify-session:', {
         priceId,
         planType,
-        restauranteId
+        restauranteId,
+        current_period_start: subscription.current_period_start,
+        current_period_end: subscription.current_period_end
       })
 
       // Obtener información del restaurante y usuario
@@ -88,6 +92,27 @@ export async function POST(request: NextRequest) {
         }
       }
 
+      // Convertir timestamps de Stripe de manera segura
+      const periodStart = new Date(subscription.current_period_start * 1000)
+      const periodEnd = new Date(subscription.current_period_end * 1000)
+
+      // Verificar que las fechas sean válidas
+      if (isNaN(periodStart.getTime()) || isNaN(periodEnd.getTime())) {
+        console.error('❌ Fechas inválidas:', {
+          current_period_start: subscription.current_period_start,
+          current_period_end: subscription.current_period_end
+        })
+        return NextResponse.json({ 
+          success: false,
+          error: 'Fechas inválidas de la suscripción' 
+        }, { status: 500 })
+      }
+
+      console.log('📅 Fechas convertidas:', {
+        periodStart: periodStart.toISOString(),
+        periodEnd: periodEnd.toISOString()
+      })
+
       const { error: insertError } = await supabase
         .from('suscripciones')
         .insert({
@@ -96,8 +121,8 @@ export async function POST(request: NextRequest) {
           stripe_subscription_id: subscription.id,
           plan_type: planType,
           status: subscription.status,
-          current_period_start: new Date(subscription.current_period_start * 1000).toISOString(),
-          current_period_end: new Date(subscription.current_period_end * 1000).toISOString(),
+          current_period_start: periodStart.toISOString(),
+          current_period_end: periodEnd.toISOString(),
           cancel_at_period_end: subscription.cancel_at_period_end,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
@@ -114,7 +139,7 @@ export async function POST(request: NextRequest) {
           const planInfo = await getPlanInfo(planType)
 
           if (planInfo) {
-            const nextBillingDate = new Date(subscription.current_period_end * 1000).toLocaleDateString('es-ES', {
+            const nextBillingDate = periodEnd.toLocaleDateString('es-ES', {
               year: 'numeric',
               month: 'long',
               day: 'numeric',
@@ -153,6 +178,8 @@ export async function POST(request: NextRequest) {
           updated_at: new Date().toISOString()
         })
         .eq('id', restauranteId)
+    } else {
+      console.log('✅ Suscripción ya existe en la base de datos')
     }
 
     return NextResponse.json({
@@ -166,9 +193,9 @@ export async function POST(request: NextRequest) {
       },
     })
   } catch (error: any) {
-    console.error('Error verifying Stripe session:', error)
+    console.error('❌ Error verifying Stripe session:', error)
     return NextResponse.json(
-      { success: false, error: error.message || 'Error verifying payment' },
+      { success: false, error: error.message || 'Error verifying payment', details: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }
     )
   }

@@ -80,7 +80,9 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session, 
         console.log('📋 Procesando suscripción:', {
             priceId,
             planType,
-            restauranteId
+            restauranteId,
+            current_period_start: subscription.current_period_start,
+            current_period_end: subscription.current_period_end
         })
 
         // Obtener información del restaurante y usuario
@@ -110,6 +112,24 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session, 
             }
         }
 
+        // Convertir timestamps de Stripe (segundos desde epoch) a ISO strings
+        const periodStart = new Date(subscription.current_period_start * 1000)
+        const periodEnd = new Date(subscription.current_period_end * 1000)
+
+        // Verificar que las fechas sean válidas antes de convertir
+        if (isNaN(periodStart.getTime()) || isNaN(periodEnd.getTime())) {
+            console.error('❌ Fechas inválidas:', {
+                current_period_start: subscription.current_period_start,
+                current_period_end: subscription.current_period_end
+            })
+            throw new Error('Invalid date values from Stripe subscription')
+        }
+
+        console.log('📅 Fechas convertidas:', {
+            periodStart: periodStart.toISOString(),
+            periodEnd: periodEnd.toISOString()
+        })
+
         // Guardar la suscripción en la base de datos
         const { error: insertError } = await supabase
             .from('suscripciones')
@@ -119,8 +139,8 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session, 
                 stripe_subscription_id: subscription.id,
                 plan_type: planType,
                 status: subscription.status,
-                current_period_start: new Date(subscription.current_period_start * 1000).toISOString(),
-                current_period_end: new Date(subscription.current_period_end * 1000).toISOString(),
+                current_period_start: periodStart.toISOString(),
+                current_period_end: periodEnd.toISOString(),
                 cancel_at_period_end: subscription.cancel_at_period_end,
                 created_at: new Date().toISOString(),
                 updated_at: new Date().toISOString(),
@@ -156,7 +176,7 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session, 
             const planInfo = await getPlanInfo(planType)
 
             if (planInfo) {
-                const nextBillingDate = new Date(subscription.current_period_end * 1000).toLocaleDateString('es-ES', {
+                const nextBillingDate = periodEnd.toLocaleDateString('es-ES', {
                     year: 'numeric',
                     month: 'long',
                     day: 'numeric',
@@ -207,13 +227,25 @@ async function handleSubscriptionUpdated(subscription: Stripe.Subscription, supa
         const priceId = sub.items.data[0].price.id
         const planType = mapPriceIdToPlanType(priceId)
 
+        // Convertir timestamps de manera segura
+        const periodStart = new Date(sub.current_period_start * 1000)
+        const periodEnd = new Date(sub.current_period_end * 1000)
+
+        if (isNaN(periodStart.getTime()) || isNaN(periodEnd.getTime())) {
+            console.error('❌ Fechas inválidas en subscription update:', {
+                current_period_start: sub.current_period_start,
+                current_period_end: sub.current_period_end
+            })
+            return
+        }
+
         const { error } = await supabase
             .from('suscripciones')
             .update({
                 status: sub.status,
                 plan_type: planType,
-                current_period_start: new Date(sub.current_period_start * 1000).toISOString(),
-                current_period_end: new Date(sub.current_period_end * 1000).toISOString(),
+                current_period_start: periodStart.toISOString(),
+                current_period_end: periodEnd.toISOString(),
                 cancel_at_period_end: sub.cancel_at_period_end,
                 updated_at: new Date().toISOString(),
             })
