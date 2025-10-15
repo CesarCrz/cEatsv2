@@ -35,10 +35,18 @@ export async function POST(request: NextRequest) {
 
     const supabase = createServiceRoleClient()
     const restauranteId = session.metadata?.restaurante_id
+    const userId = session.metadata?.user_id
 
     if (!restauranteId) {
       return NextResponse.json(
         { success: false, error: 'No se encontró restaurante_id' },
+        { status: 400 }
+      )
+    }
+
+    if (!userId) {
+      return NextResponse.json(
+        { success: false, error: 'No se encontró user_id' },
         { status: 400 }
       )
     }
@@ -48,7 +56,7 @@ export async function POST(request: NextRequest) {
       .from('suscripciones')
       .select('id')
       .eq('stripe_subscription_id', session.subscription as string)
-      .single()
+      .maybeSingle() // Cambiado de .single() a .maybeSingle()
 
     // Si no existe, crearla (respaldo del webhook)
     if (!existingSub && session.subscription) {
@@ -93,34 +101,36 @@ export async function POST(request: NextRequest) {
         priceId,
         planType,
         restauranteId,
+        userId,
         periodStart: periodStart.toISOString(),
         periodEnd: periodEnd.toISOString(),
         subscription_status: subscription.status,
         subscription_id: subscription.id
       })
 
-      // Obtener información del restaurante y usuario
-      const { data: restaurante } = await supabase
-        .from('restaurantes')
-        .select('nombre, user_id')
-        .eq('id', restauranteId)
+      // Obtener información del usuario directamente con el user_id de metadata
+      console.log('🔍 Obteniendo perfil de usuario:', userId)
+      
+      const { data: userProfile, error: userProfileError } = await supabase
+        .from('user_profiles')
+        .select('email, nombre, apellidos')
+        .eq('id', userId)
         .single()
 
-      let userEmail = null
-      let userName = 'Usuario'
-
-      if (restaurante?.user_id) {
-        const { data: userProfile } = await supabase
-          .from('user_profiles')
-          .select('email, nombre')
-          .eq('id', restaurante.user_id)
-          .single()
-
-        if (userProfile) {
-          userEmail = userProfile.email
-          userName = userProfile.nombre || 'Usuario'
-        }
+      if (userProfileError) {
+        console.error('❌ Error al obtener perfil de usuario:', userProfileError)
       }
+
+      console.log('📋 Perfil de usuario encontrado:', userProfile)
+
+      const userEmail = userProfile?.email
+      const userName = userProfile?.nombre || 'Usuario'
+
+      console.log('📧 Información del usuario para emails:', {
+        userEmail,
+        userName,
+        hasEmail: !!userEmail
+      })
 
       const { error: insertError } = await supabase
         .from('suscripciones')
@@ -144,10 +154,18 @@ export async function POST(request: NextRequest) {
 
         // Enviar correos de confirmación
         if (userEmail) {
+          console.log('📧 Preparando envío de correos para:', userEmail)
+          
           // Obtener información dinámica del plan
           const planInfo = await getPlanInfo(planType)
 
           if (planInfo) {
+            console.log('📋 Información del plan obtenida:', {
+              nombre: planInfo.nombre_display,
+              precio: planInfo.precio,
+              caracteristicas_count: planInfo.caracteristicas?.length || 0
+            })
+
             const nextBillingDate = periodEnd.toLocaleDateString('es-ES', {
               year: 'numeric',
               month: 'long',
@@ -158,6 +176,8 @@ export async function POST(request: NextRequest) {
               .filter(c => c.incluido)
               .map(c => c.texto)
 
+            console.log('📧 Features incluidas en email:', features.length)
+
             try {
               const confirmationTemplate = getSubscriptionConfirmationTemplate(
                 planInfo.nombre_display,
@@ -166,27 +186,27 @@ export async function POST(request: NextRequest) {
                 features,
               )
 
+              console.log('📧 Enviando email de confirmación...')
               await sendCustomEmail(userEmail, confirmationTemplate)
+              console.log('✅ Email de confirmación enviado')
 
               const welcomeTemplate = getWelcomeSubscriptionTemplate(userName, planInfo.nombre_display)
+              
+              console.log('📧 Enviando email de bienvenida...')
               await sendCustomEmail(userEmail, welcomeTemplate)
+              console.log('✅ Email de bienvenida enviado')
 
-              console.log('✅ Correos enviados desde verify-session')
+              console.log('✅ Correos enviados correctamente desde verify-session')
             } catch (emailError) {
               console.error('❌ Error al enviar correos:', emailError)
             }
+          } else {
+            console.log('⚠️ No se pudo obtener información del plan para emails')
           }
+        } else {
+          console.log('⚠️ No se encontró email del usuario, no se enviaron correos')
         }
       }
-
-      // Actualizar restaurante
-      await supabase
-        .from('restaurantes')
-        .update({
-          activo: true,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', restauranteId)
     } else {
       console.log('✅ Suscripción ya existe en la base de datos')
     }

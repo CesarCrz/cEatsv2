@@ -48,11 +48,17 @@ export async function POST(request: NextRequest) {
 
 async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session, supabase: any) {
     try {
-        // Obtener el restaurante_id de los metadatos
+        // Obtener el restaurante_id y user_id de los metadatos
         const restauranteId = session.metadata?.restaurante_id
+        const userId = session.metadata?.user_id
 
         if (!restauranteId) {
             console.error('❌ No restaurante_id en metadata')
+            return
+        }
+
+        if (!userId) {
+            console.error('❌ No user_id en metadata')
             return
         }
 
@@ -109,88 +115,114 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session, 
             priceId,
             planType,
             restauranteId,
+            userId,
             periodStart: periodStart.toISOString(),
             periodEnd: periodEnd.toISOString(),
             subscription_status: subscription.status,
             subscription_id: subscription.id
         })
 
-        // Obtener información del restaurante y usuario
-        const { data: restaurante, error: restauranteError } = await supabase
-            .from('restaurantes')
-            .select('nombre, user_id')
-            .eq('id', restauranteId)
+        // Obtener información del usuario directamente con el user_id de metadata
+        console.log('🔍 Obteniendo perfil de usuario:', userId)
+        
+        const { data: userProfile, error: userProfileError } = await supabase
+            .from('user_profiles')
+            .select('email, nombre, apellidos')
+            .eq('id', userId)
             .single()
 
-        if (restauranteError) {
-            console.error('❌ Error al obtener información del restaurante:', restauranteError)
+        if (userProfileError) {
+            console.error('❌ Error al obtener perfil de usuario:', userProfileError)
         }
 
-        let userEmail = null
-        let userName = 'Usuario'
+        console.log('📋 Perfil de usuario encontrado:', userProfile)
 
-        if (restaurante?.user_id) {
-            const { data: userProfile } = await supabase
-                .from('user_profiles')
-                .select('email, nombre')
-                .eq('id', restaurante.user_id)
-                .single()
-
-            if (userProfile) {
-                userEmail = userProfile.email
-                userName = userProfile.nombre || 'Usuario'
-            }
-        }
+        const userEmail = userProfile?.email
+        const userName = userProfile?.nombre || 'Usuario'
+        
+        console.log('📧 Información del usuario para emails:', {
+            userEmail,
+            userName,
+            hasEmail: !!userEmail
+        })
 
         console.log('📅 Fechas convertidas:', {
             periodStart: periodStart.toISOString(),
             periodEnd: periodEnd.toISOString()
         })
 
-        // Guardar la suscripción en la base de datos
-        const { error: insertError } = await supabase
+        // Verificar si la suscripción ya existe para evitar duplicados
+        console.log('🔍 Verificando si la suscripción ya existe:', subscription.id)
+        
+        const { data: existingSubscription } = await supabase
             .from('suscripciones')
-            .insert({
-                restaurante_id: restauranteId,
-                stripe_customer_id: subscription.customer as string,
-                stripe_subscription_id: subscription.id,
-                plan_type: planType,
-                status: subscription.status,
-                current_period_start: periodStart.toISOString(),
-                current_period_end: periodEnd.toISOString(),
-                cancel_at_period_end: subscription.cancel_at_period_end,
-                created_at: new Date().toISOString(),
-                updated_at: new Date().toISOString(),
-            })
+            .select('id')
+            .eq('stripe_subscription_id', subscription.id)
+            .maybeSingle()
 
-        if (insertError) {
-            console.error('❌ Error al insertar suscripción:', insertError)
-            throw insertError
+        let upsertError
+
+        if (existingSubscription) {
+            console.log('♻️ Suscripción existente encontrada, actualizando...')
+            
+            // Actualizar suscripción existente
+            const { error } = await supabase
+                .from('suscripciones')
+                .update({
+                    restaurante_id: restauranteId,
+                    stripe_customer_id: subscription.customer as string,
+                    plan_type: planType,
+                    status: subscription.status,
+                    current_period_start: periodStart.toISOString(),
+                    current_period_end: periodEnd.toISOString(),
+                    cancel_at_period_end: subscription.cancel_at_period_end,
+                    updated_at: new Date().toISOString(),
+                })
+                .eq('stripe_subscription_id', subscription.id)
+
+            upsertError = error
+        } else {
+            console.log('🆕 Suscripción nueva, insertando...')
+            
+            // Insertar nueva suscripción
+            const { error } = await supabase
+                .from('suscripciones')
+                .insert({
+                    restaurante_id: restauranteId,
+                    stripe_customer_id: subscription.customer as string,
+                    stripe_subscription_id: subscription.id,
+                    plan_type: planType,
+                    status: subscription.status,
+                    current_period_start: periodStart.toISOString(),
+                    current_period_end: periodEnd.toISOString(),
+                    cancel_at_period_end: subscription.cancel_at_period_end,
+                    created_at: new Date().toISOString(),
+                    updated_at: new Date().toISOString(),
+                })
+
+            upsertError = error
+        }
+
+        if (upsertError) {
+            console.error('❌ Error al guardar suscripción:', upsertError)
+            throw upsertError
         }
 
         console.log('✅ Suscripción guardada exitosamente:', {
+            operacion: existingSubscription ? 'actualizada' : 'creada',
             restaurante_id: restauranteId,
             subscription_id: subscription.id,
             plan_type: planType,
         })
 
-        // Actualizar el estado del restaurante a activo
-        const { error: updateError } = await supabase
-            .from('restaurantes')
-            .update({
-                activo: true,
-                updated_at: new Date().toISOString()
-            })
-            .eq('id', restauranteId)
-
-        if (updateError) {
-            console.error('❌ Error al actualizar restaurante:', updateError)
-        }
-
-        // Enviar correos de confirmación si tenemos la información del usuario
-        if (userEmail) {
+        // Enviar correos de confirmación SOLO para suscripciones nuevas
+        if (!existingSubscription && userEmail) {
+            console.log('📧 Iniciando proceso de envío de correos a:', userEmail)
+            
             // Obtener información dinámica del plan
             const planInfo = await getPlanInfo(planType)
+
+            console.log('📋 Información del plan obtenida:', planInfo ? `${planInfo.nombre_display} - $${planInfo.precio}` : 'null')
 
             if (planInfo) {
                 const nextBillingDate = periodEnd.toLocaleDateString('es-ES', {
@@ -204,6 +236,13 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session, 
                     .filter(c => c.incluido)
                     .map(c => c.texto)
 
+                console.log('📧 Preparando envío de correos con:', {
+                    planName: planInfo.nombre_display,
+                    price: planInfo.precio === 0 ? 'Gratis' : `$${planInfo.precio}/mes`,
+                    nextBillingDate,
+                    featuresCount: features.length
+                })
+
                 try {
                     // Enviar email de confirmación de suscripción
                     const confirmationTemplate = getSubscriptionConfirmationTemplate(
@@ -213,24 +252,30 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session, 
                         features,
                     )
 
+                    console.log('📧 Template de confirmación generado, enviando...')
                     await sendCustomEmail(userEmail, confirmationTemplate)
 
                     console.log('✅ Email de confirmación enviado a:', userEmail)
 
                     // Enviar email de bienvenida
                     const welcomeTemplate = getWelcomeSubscriptionTemplate(userName, planInfo.nombre_display)
+                    
+                    console.log('📧 Template de bienvenida generado, enviando...')
                     await sendCustomEmail(userEmail, welcomeTemplate)
 
                     console.log('✅ Email de bienvenida enviado a:', userEmail)
                 } catch (emailError) {
                     console.error('❌ Error al enviar correos de confirmación:', emailError)
+                    console.error('❌ Detalles del error:', emailError instanceof Error ? emailError.message : String(emailError))
                     // No lanzamos el error para que no falle el webhook completo
                 }
             } else {
                 console.error('❌ No se pudo obtener información del plan:', planType)
             }
+        } else if (existingSubscription) {
+            console.log('ℹ️ Suscripción actualizada - no se envían correos de bienvenida')
         } else {
-            console.warn('⚠️ No se encontró email del usuario para enviar correos de confirmación')
+            console.warn('⚠️ No se encontró email del usuario, no se enviarán correos de confirmación')
         }
     } catch (error) {
         console.error('❌ Error en handleCheckoutSessionCompleted:', error)

@@ -2605,7 +2605,7 @@ Esto nos permitirá ver exactamente qué propiedades tiene el objeto y dónde es
 
 ---
 
-_**User (2025-10-13 20:58Z)**_
+_**User (2025-10-13 21:00Z)**_
 
 o portque no simplemente creamos una nueva fecha para ello? no sería mejor?
 
@@ -2627,7 +2627,1648 @@ Ahora hago lo mismo en verify-session:
 ```
 
 ```
+Hay una declaración duplicada. Déjame encontrar y eliminar el código viejo: Necesito eliminar el código viejo de validación: 
+```
 
+```
+Ahora verifico los errores: ¡Perfecto! Ahora los cambios están aplicados correctamente. Te explico la solución implementada:
+
+## ✅ Solución Implementada: Crear Fechas Nuevas
+
+### 🎯 Estrategia:
+
+1. **Primero intenta obtener las fechas de Stripe** (las más precisas)
+2. **Si no están disponibles, crea fechas nuevas**:
+   - `periodStart`: Fecha y hora actual
+   - `periodEnd`: Fecha actual + 30 días
+
+### 📝 Código Implementado:
+
+```typescript
+// Intentar obtener las fechas de Stripe
+let periodStartTimestamp = subscription.current_period_start
+let periodEndTimestamp = subscription.current_period_end
+
+// Si no están disponibles, intentar desde items
+if (!periodStartTimestamp && subscription.items?.data?.[0]) {
+    const item = subscription.items.data[0]
+    periodStartTimestamp = item.current_period_start
+    periodEndTimestamp = item.current_period_end
+}
+
+// Si aún no tenemos fechas, crear nuevas basadas en la fecha actual
+let periodStart: Date
+let periodEnd: Date
+
+if (periodStartTimestamp && periodEndTimestamp) {
+    // Usar fechas de Stripe si están disponibles
+    periodStart = new Date(periodStartTimestamp * 1000)
+    periodEnd = new Date(periodEndTimestamp * 1000)
+    console.log('📅 Usando fechas de Stripe')
+} else {
+    // Crear fechas nuevas: inicio ahora, fin en 30 días
+    periodStart = new Date()
+    periodEnd = new Date()
+    periodEnd.setDate(periodEnd.getDate() + 30)
+    console.log('📅 Creando fechas nuevas (fechas de Stripe no disponibles)')
+}
+```
+
+### 🎁 Ventajas:
+
+1. **Siempre funciona**: No falla nunca, siempre hay fechas válidas
+2. **Razonable**: 30 días es el periodo estándar de facturación mensual
+3. **Simple**: No hay validaciones complejas ni errores
+4. **Logs claros**: Sabrás cuando usa fechas de Stripe vs. fechas creadas
+
+### 📊 En los logs verás:
+
+```
+📅 Creando fechas nuevas (fechas de Stripe no disponibles)
+📋 Creando suscripción desde verify-session: {
+  priceId: "price_xxx",
+  planType: "premium",
+  periodStart: "2025-10-13T...",
+  periodEnd: "2025-11-12T...",
+  ...
+}
+✅ Suscripción creada desde verify-session
+```
+
+**Ahora haz otro intento de pago y debería funcionar perfectamente!** 🚀
+
+---
+
+_**User (2025-10-15 16:22Z)**_
+
+de acuerdo, ya funcionan las suscripciones parece que encontramos la solución para eso, sin embargo no se han mandado los correos de bienvenida ni el de comprobante de pago que habiamos platicado anteriormente que era el objetivo de mandar esos correos al usuario, puedes revisar, qué es lo que podría ser por favor para encontrar el detalle y solucionarlo por favor?
+
+---
+
+_**Assistant (copilot/claude-sonnet-4.5)**_
+
+Voy a revisar por qué no se están enviando los correos. Déjame verificar el flujo completo:
+
+Primero, déjame ver los logs para entender qué está pasando. ¿Ves alguno de estos mensajes en la consola?
+- `✅ Email de confirmación enviado a:`
+- `✅ Email de bienvenida enviado a:`
+- `❌ Error al enviar correos de confirmación:`
+- `⚠️ No se encontró email del usuario`
+
+Déjame revisar el archivo de email sender para verificar que la función esté correcta:
+
+Ahora déjame verificar si hay algún problema con la obtención del email del usuario. Voy a agregar más logs para debugging:
+
+````typescript
+// ...existing code...
+
+async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session, supabase: any) {
+    try {
+        // Obtener el restaurante_id de los metadatos
+        const restauranteId = session.metadata?.restaurante_id
+
+        if (!restauranteId) {
+            console.error('❌ No restaurante_id en metadata')
+            return
+        }
+
+        if (!session.subscription) {
+            console.error('❌ No subscription ID in session')
+            return
+        }
+
+        console.log('✅ Checkout session completed:', {
+            customer: session.customer,
+            subscription: session.subscription,
+            metadata: session.metadata
+        })
+
+        // Obtener la suscripción expandida
+        const subscriptionId = session.subscription as string
+        const subscription = await stripe.subscriptions.retrieve(subscriptionId, {
+            expand: ['items.data.price.product'],
+        }) as any
+
+        // Obtener el price_id y mapear al tipo de plan
+        const priceId = subscription.items.data[0].price.id
+        const planType = mapPriceIdToPlanType(priceId)
+
+        // Intentar obtener las fechas de Stripe, si no están disponibles, usar fechas actuales
+        let periodStartTimestamp = subscription.current_period_start
+        let periodEndTimestamp = subscription.current_period_end
+
+        // Si no están disponibles directamente, intentar desde items
+        if (!periodStartTimestamp && subscription.items?.data?.[0]) {
+            const item = subscription.items.data[0]
+            periodStartTimestamp = item.current_period_start
+            periodEndTimestamp = item.current_period_end
+        }
+
+        // Si aún no tenemos fechas, crear nuevas basadas en la fecha actual
+        let periodStart: Date
+        let periodEnd: Date
+
+        if (periodStartTimestamp && periodEndTimestamp) {
+            // Usar fechas de Stripe si están disponibles
+            periodStart = new Date(periodStartTimestamp * 1000)
+            periodEnd = new Date(periodEndTimestamp * 1000)
+            console.log('📅 Usando fechas de Stripe')
+        } else {
+            // Crear fechas nuevas: inicio ahora, fin en 30 días
+            periodStart = new Date()
+            periodEnd = new Date()
+            periodEnd.setDate(periodEnd.getDate() + 30) // 30 días desde ahora
+            console.log('📅 Creando fechas nuevas (fechas de Stripe no disponibles)')
+        }
+
+        console.log('📋 Procesando suscripción:', {
+            priceId,
+            planType,
+            restauranteId,
+            periodStart: periodStart.toISOString(),
+            periodEnd: periodEnd.toISOString(),
+            subscription_status: subscription.status,
+            subscription_id: subscription.id
+        })
+
+        // Obtener información del restaurante y usuario
+        console.log('🔍 Buscando información del restaurante:', restauranteId)
+        const { data: restaurante, error: restauranteError } = await supabase
+            .from('restaurantes')
+            .select('nombre, user_id')
+            .eq('id', restauranteId)
+            .single()
+
+        if (restauranteError) {
+            console.error('❌ Error al obtener información del restaurante:', restauranteError)
+        }
+
+        console.log('📋 Restaurante encontrado:', restaurante)
+
+        let userEmail = null
+        let userName = 'Usuario'
+
+        if (restaurante?.user_id) {
+            console.log('🔍 Buscando perfil de usuario:', restaurante.user_id)
+            const { data: userProfile, error: userError } = await supabase
+                .from('user_profiles')
+                .select('email, nombre')
+                .eq('id', restaurante.user_id)
+                .single()
+
+            if (userError) {
+                console.error('❌ Error al obtener perfil de usuario:', userError)
+            }
+
+            console.log('📋 Perfil de usuario encontrado:', userProfile)
+
+            if (userProfile) {
+                userEmail = userProfile.email
+                userName = userProfile.nombre || 'Usuario'
+            }
+        } else {
+            console.warn('⚠️ No se encontró user_id en el restaurante')
+        }
+
+        console.log('📧 Información del usuario para emails:', {
+            userEmail,
+            userName,
+            hasEmail: !!userEmail
+        })
+
+        console.log('📅 Fechas convertidas:', {
+            periodStart: periodStart.toISOString(),
+            periodEnd: periodEnd.toISOString()
+        })
+
+        // Guardar la suscripción en la base de datos
+        const { error: insertError } = await supabase
+            .from('suscripciones')
+            .insert({
+                restaurante_id: restauranteId,
+                stripe_customer_id: subscription.customer as string,
+                stripe_subscription_id: subscription.id,
+                plan_type: planType,
+                status: subscription.status,
+                current_period_start: periodStart.toISOString(),
+                current_period_end: periodEnd.toISOString(),
+                cancel_at_period_end: subscription.cancel_at_period_end,
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString(),
+            })
+
+        if (insertError) {
+            console.error('❌ Error al insertar suscripción:', insertError)
+            throw insertError
+        }
+
+        console.log('✅ Suscripción guardada exitosamente:', {
+            restaurante_id: restauranteId,
+            subscription_id: subscription.id,
+            plan_type: planType,
+        })
+
+        // Actualizar el estado del restaurante a activo
+        const { error: updateError } = await supabase
+            .from('restaurantes')
+            .update({
+                activo: true,
+                updated_at: new Date().toISOString()
+            })
+            .eq('id', restauranteId)
+
+        if (updateError) {
+            console.error('❌ Error al actualizar restaurante:', updateError)
+        }
+
+        // Enviar correos de confirmación si tenemos la información del usuario
+        if (userEmail) {
+            console.log('📧 Iniciando proceso de envío de correos a:', userEmail)
+            
+            // Obtener información dinámica del plan
+            const planInfo = await getPlanInfo(planType)
+
+            console.log('📋 Información del plan obtenida:', planInfo)
+
+            if (planInfo) {
+                const nextBillingDate = periodEnd.toLocaleDateString('es-ES', {
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric',
+                })
+
+                // Extraer solo las características incluidas
+                const features = planInfo.caracteristicas
+                    .filter(c => c.incluido)
+                    .map(c => c.texto)
+
+                console.log('📧 Preparando email de confirmación con:', {
+                    planName: planInfo.nombre_display,
+                    price: planInfo.precio === 0 ? 'Gratis' : `$${planInfo.precio}/mes`,
+                    nextBillingDate,
+                    featuresCount: features.length
+                })
+
+                try {
+                    // Enviar email de confirmación de suscripción
+                    const confirmationTemplate = getSubscriptionConfirmationTemplate(
+                        planInfo.nombre_display,
+                        planInfo.precio === 0 ? 'Gratis' : `$${planInfo.precio}/mes`,
+                        nextBillingDate,
+                        features,
+                    )
+
+                    console.log('📧 Template de confirmación generado:', {
+                        subject: confirmationTemplate.subject,
+                        hasHtml: !!confirmationTemplate.html,
+                        hasText: !!confirmationTemplate.text
+                    })
+
+                    await sendCustomEmail(userEmail, confirmationTemplate)
+
+                    console.log('✅ Email de confirmación enviado a:', userEmail)
+
+                    // Enviar email de bienvenida
+                    const welcomeTemplate = getWelcomeSubscriptionTemplate(userName, planInfo.nombre_display)
+                    
+                    console.log('📧 Template de bienvenida generado:', {
+                        subject: welcomeTemplate.subject,
+                        hasHtml: !!welcomeTemplate.html,
+                        hasText: !!welcomeTemplate.text
+                    })
+
+                    await sendCustomEmail(userEmail, welcomeTemplate)
+
+                    console.log('✅ Email de bienvenida enviado a:', userEmail)
+                } catch (emailError) {
+                    console.error('❌ Error al enviar correos de confirmación:', emailError)
+                    console.error('❌ Stack trace:', emailError instanceof Error ? emailError.stack : 'No stack')
+                    // No lanzamos el error para que no falle el webhook completo
+                }
+            } else {
+                console.error('❌ No se pudo obtener información del plan:', planType)
+            }
+        } else {
+            console.warn('⚠️ No se encontró email del usuario para enviar correos de confirmación')
+        }
+    } catch (error) {
+        console.error('❌ Error en handleCheckoutSessionCompleted:', error)
+        console.error('❌ Stack trace:', error instanceof Error ? error.stack : 'No stack')
+        throw error
+    }
+}
+
+// ...existing code...
+````
+
+Estos logs detallados nos ayudarán a identificar exactamente dónde está fallando el proceso de envío de correos. Por favor:
+
+1. **Haz otro pago de prueba**
+2. **Compárteme todos los logs** que aparezcan en la consola
+
+Los logs nos dirán:
+- Si se encontró el restaurante
+- Si se encontró el user_id
+- Si se encontró el perfil del usuario con el email
+- Si se obtuvo la información del plan
+- Si se generaron correctamente los templates
+- Si hubo algún error al enviar los emails
+
+Con esa información podré identificar exactamente dónde está el problema. 🔍
+
+---
+
+_**User (2025-10-15 16:25Z)**_
+
+ya veo que es lo que está sucediendo, mira esto es lo que me dio de console.log():
+se va a buscar premium en la bd
+ EEEEE config stripe products: {"trial":"price_1S2cneGUALJmASwd8ThXXgZm","premium":"price_1S2cqiGUALJmASwdYuvUzM2A","standard":"price_1S2cp1GUALJmASwdoAAQ5QwR"}
+✅ Checkout session completed: {
+  customer: 'cus_TF1QoGYDWAGBox',
+  subscription: 'sub_1SIXO5GUALJmASwdfXNbbgis',
+  metadata: {
+    user_id: 'd4c37a48-586f-49c7-9104-69dfcd216a86',
+    restaurante_id: 'edd20dec-9a57-4ea2-96b2-1282a5a31dc3',
+    plan_type: 'premium'
+  }
+}
+📅 Usando fechas de Stripe
+📋 Procesando suscripción: {
+  priceId: 'price_1S2cqiGUALJmASwdYuvUzM2A',
+  planType: 'premium',
+  restauranteId: 'edd20dec-9a57-4ea2-96b2-1282a5a31dc3',
+  periodStart: '2025-10-15T16:17:15.000Z',
+  periodEnd: '2025-11-15T16:17:15.000Z',
+  subscription_status: 'active',
+  subscription_id: 'sub_1SIXO5GUALJmASwdfXNbbgis'
+}
+❌ Error al obtener información del restaurante: {
+  code: '42703',
+  details: null,
+  hint: null,
+  message: 'column restaurantes.user_id does not exist'
+}
+📅 Fechas convertidas: {
+  periodStart: '2025-10-15T16:17:15.000Z',
+  periodEnd: '2025-11-15T16:17:15.000Z'
+}
+✅ Suscripción guardada exitosamente: {
+  restaurante_id: 'edd20dec-9a57-4ea2-96b2-1282a5a31dc3',
+  subscription_id: 'sub_1SIXO5GUALJmASwdfXNbbgis',
+  plan_type: 'premium'
+}
+❌ Error al actualizar restaurante: {
+  code: 'PGRST204',
+  details: null,
+  hint: null,
+  message: "Could not find the 'activo' column of 'restaurantes' in the schema cache"
+}
+⚠️ No se encontró email del usuario para enviar correos de confirmación
+entrando al enpoint de check-user-status
+🔍 Verificando estado del usuario: d4c37a48-586f-49c7-9104-69dfcd216a86
+✅ Estado del usuario: { isVerified: true, hasExpiredCode: false, profileExists: true }
+ ⚠ Unsupported metadata viewport is configured in metadata export in /dashboard/restaurantes/edd20dec-9a57-4ea2-96b2-1282a5a31dc3/success. Please move it to viewport export instead.
+Read more: https://nextjs.org/docs/app/api-reference/functions/generate-viewport
+🔍 Verificando sesión: cs_test_a1HeXQAJC0NbbV2mMz5udU2GbfPbDmFyY0dQkTtjG2vICzArZltzOm9M5y
+✅ Suscripción ya existe en la base de datos
+ ⚠ Unsupported metadata viewport is configured in metadata export in /dashboard/restaurantes/edd20dec-9a57-4ea2-96b2-1282a5a31dc3. Please move it to viewport export instead.
+Read more: https://nextjs.org/docs/app/api-reference/functions/generate-viewport
+restaurante_id: edd20dec-9a57-4ea2-96b2-1282a5a31dc3
+restaurante_id: edd20dec-9a57-4ea2-96b2-1282a5a31dc3
+entrando al enpoint de check-user-status
+
+pero ahora recuerdo que tenemos un endpoint en donde podemos obtener la infomracion del usuario el cual es el siguiente #file:route.ts en donde se obtiene el id, restaurante, email, user_metadata... 
+entonces eso nos puede servir no?? o es algo que ya se usa?
+
+---
+
+_**Assistant (copilot/claude-sonnet-4.5)**_
+
+¡Perfecto! Ya veo el problema. El error dice:
+
+```
+❌ Error al obtener información del restaurante: {
+  message: 'column restaurantes.user_id does not exist'
+}
+```
+
+Y también:
+```
+❌ Error al actualizar restaurante: {
+  message: "Could not find the 'activo' column of 'restaurantes' in the schema cache"
+}
+```
+
+Esto significa que la tabla `restaurantes` **no tiene las columnas `user_id` ni `activo`**. 
+
+Además, veo que en los metadatos del checkout ya tienes el `user_id`:
+```javascript
+metadata: {
+  user_id: 'd4c37a48-586f-49c7-9104-69dfcd216a86',
+  restaurante_id: 'edd20dec-9a57-4ea2-96b2-1282a5a31dc3',
+  plan_type: 'premium'
+}
+```
+
+¡Excelente! Podemos usar directamente el `user_id` de los metadatos. Voy a corregir el código:
+
+````typescript
+// ...existing code...
+
+async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session, supabase: any) {
+    try {
+        // Obtener el restaurante_id y user_id de los metadatos
+        const restauranteId = session.metadata?.restaurante_id
+        const userId = session.metadata?.user_id
+
+        if (!restauranteId) {
+            console.error('❌ No restaurante_id en metadata')
+            return
+        }
+
+        if (!userId) {
+            console.error('❌ No user_id en metadata')
+            return
+        }
+
+        if (!session.subscription) {
+            console.error('❌ No subscription ID in session')
+            return
+        }
+
+        console.log('✅ Checkout session completed:', {
+            customer: session.customer,
+            subscription: session.subscription,
+            metadata: session.metadata
+        })
+
+        // Obtener la suscripción expandida
+        const subscriptionId = session.subscription as string
+        const subscription = await stripe.subscriptions.retrieve(subscriptionId, {
+            expand: ['items.data.price.product'],
+        }) as any
+
+        // Obtener el price_id y mapear al tipo de plan
+        const priceId = subscription.items.data[0].price.id
+        const planType = mapPriceIdToPlanType(priceId)
+
+        // Intentar obtener las fechas de Stripe, si no están disponibles, usar fechas actuales
+        let periodStartTimestamp = subscription.current_period_start
+        let periodEndTimestamp = subscription.current_period_end
+
+        // Si no están disponibles directamente, intentar desde items
+        if (!periodStartTimestamp && subscription.items?.data?.[0]) {
+            const item = subscription.items.data[0]
+            periodStartTimestamp = item.current_period_start
+            periodEndTimestamp = item.current_period_end
+        }
+
+        // Si aún no tenemos fechas, crear nuevas basadas en la fecha actual
+        let periodStart: Date
+        let periodEnd: Date
+
+        if (periodStartTimestamp && periodEndTimestamp) {
+            // Usar fechas de Stripe si están disponibles
+            periodStart = new Date(periodStartTimestamp * 1000)
+            periodEnd = new Date(periodEndTimestamp * 1000)
+            console.log('📅 Usando fechas de Stripe')
+        } else {
+            // Crear fechas nuevas: inicio ahora, fin en 30 días
+            periodStart = new Date()
+            periodEnd = new Date()
+            periodEnd.setDate(periodEnd.getDate() + 30) // 30 días desde ahora
+            console.log('📅 Creando fechas nuevas (fechas de Stripe no disponibles)')
+        }
+
+        console.log('📋 Procesando suscripción:', {
+            priceId,
+            planType,
+            restauranteId,
+            userId,
+            periodStart: periodStart.toISOString(),
+            periodEnd: periodEnd.toISOString(),
+            subscription_status: subscription.status,
+            subscription_id: subscription.id
+        })
+
+        // Obtener información del usuario directamente con el user_id
+        console.log('🔍 Buscando perfil de usuario:', userId)
+        const { data: userProfile, error: userError } = await supabase
+            .from('user_profiles')
+            .select('email, nombre')
+            .eq('id', userId)
+            .single()
+
+        if (userError) {
+            console.error('❌ Error al obtener perfil de usuario:', userError)
+        }
+
+        console.log('📋 Perfil de usuario encontrado:', userProfile)
+
+        let userEmail = null
+        let userName = 'Usuario'
+
+        if (userProfile) {
+            userEmail = userProfile.email
+            userName = userProfile.nombre || 'Usuario'
+        }
+
+        console.log('📧 Información del usuario para emails:', {
+            userEmail,
+            userName,
+            hasEmail: !!userEmail
+        })
+
+        console.log('📅 Fechas convertidas:', {
+            periodStart: periodStart.toISOString(),
+            periodEnd: periodEnd.toISOString()
+        })
+
+        // Guardar la suscripción en la base de datos
+        const { error: insertError } = await supabase
+            .from('suscripciones')
+            .insert({
+                restaurante_id: restauranteId,
+                stripe_customer_id: subscription.customer as string,
+                stripe_subscription_id: subscription.id,
+                plan_type: planType,
+                status: subscription.status,
+                current_period_start: periodStart.toISOString(),
+                current_period_end: periodEnd.toISOString(),
+                cancel_at_period_end: subscription.cancel_at_period_end,
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString(),
+            })
+
+        if (insertError) {
+            console.error('❌ Error al insertar suscripción:', insertError)
+            throw insertError
+        }
+
+        console.log('✅ Suscripción guardada exitosamente:', {
+            restaurante_id: restauranteId,
+            subscription_id: subscription.id,
+            plan_type: planType,
+        })
+
+        // Enviar correos de confirmación si tenemos la información del usuario
+        if (userEmail) {
+            console.log('📧 Iniciando proceso de envío de correos a:', userEmail)
+            
+            // Obtener información dinámica del plan
+            const planInfo = await getPlanInfo(planType)
+
+            console.log('📋 Información del plan obtenida:', planInfo)
+
+            if (planInfo) {
+                const nextBillingDate = periodEnd.toLocaleDateString('es-ES', {
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric',
+                })
+
+                // Extraer solo las características incluidas
+                const features = planInfo.caracteristicas
+                    .filter(c => c.incluido)
+                    .map(c => c.texto)
+
+                console.log('📧 Preparando email de confirmación con:', {
+                    planName: planInfo.nombre_display,
+                    price: planInfo.precio === 0 ? 'Gratis' : `$${planInfo.precio}/mes`,
+                    nextBillingDate,
+                    featuresCount: features.length
+                })
+
+                try {
+                    // Enviar email de confirmación de suscripción
+                    const confirmationTemplate = getSubscriptionConfirmationTemplate(
+                        planInfo.nombre_display,
+                        planInfo.precio === 0 ? 'Gratis' : `$${planInfo.precio}/mes`,
+                        nextBillingDate,
+                        features,
+                    )
+
+                    console.log('📧 Template de confirmación generado:', {
+                        subject: confirmationTemplate.subject,
+                        hasHtml: !!confirmationTemplate.html,
+                        hasText: !!confirmationTemplate.text
+                    })
+
+                    await sendCustomEmail(userEmail, confirmationTemplate)
+
+                    console.log('✅ Email de confirmación enviado a:', userEmail)
+
+                    // Enviar email de bienvenida
+                    const welcomeTemplate = getWelcomeSubscriptionTemplate(userName, planInfo.nombre_display)
+                    
+                    console.log('📧 Template de bienvenida generado:', {
+                        subject: welcomeTemplate.subject,
+                        hasHtml: !!welcomeTemplate.html,
+                        hasText: !!welcomeTemplate.text
+                    })
+
+                    await sendCustomEmail(userEmail, welcomeTemplate)
+
+                    console.log('✅ Email de bienvenida enviado a:', userEmail)
+                } catch (emailError) {
+                    console.error('❌ Error al enviar correos de confirmación:', emailError)
+                    console.error('❌ Stack trace:', emailError instanceof Error ? emailError.stack : 'No stack')
+                    // No lanzamos el error para que no falle el webhook completo
+                }
+            } else {
+                console.error('❌ No se pudo obtener información del plan:', planType)
+            }
+        } else {
+            console.warn('⚠️ No se encontró email del usuario para enviar correos de confirmación')
+        }
+    } catch (error) {
+        console.error('❌ Error en handleCheckoutSessionCompleted:', error)
+        console.error('❌ Stack trace:', error instanceof Error ? error.stack : 'No stack')
+        throw error
+    }
+}
+
+// ...existing code...
+````
+
+Ahora hago lo mismo en `verify-session`:
+
+````typescript
+import { stripe } from "@/lib/stripe"
+import { createClient } from "@/utils/supabase/server"
+import { NextResponse } from "next/server"
+import { sendCustomEmail } from "@/lib/email/sender"
+import { getSubscriptionConfirmationTemplate, getWelcomeSubscriptionTemplate } from "@/lib/email/templates"
+import { getPlanInfo, mapPriceIdToPlanType } from "@/lib/subscription/get-plan-info"
+
+export async function POST(req: Request) {
+  try {
+    const { sessionId } = await req.json()
+
+    if (!sessionId) {
+      return NextResponse.json({ error: "Session ID requerido" }, { status: 400 })
+    }
+
+    console.log('🔍 Verificando sesión:', sessionId)
+
+    // Verificar la sesión con Stripe
+    const session = await stripe.checkout.sessions.retrieve(sessionId)
+
+    if (session.payment_status !== "paid") {
+      return NextResponse.json({ error: "Pago no completado" }, { status: 400 })
+    }
+
+    const supabase = await createClient()
+    const restauranteId = session.metadata?.restaurante_id
+    const userId = session.metadata?.user_id
+
+    if (!restauranteId) {
+      return NextResponse.json({ error: "No se encontró restaurante_id" }, { status: 400 })
+    }
+
+    if (!userId) {
+      return NextResponse.json({ error: "No se encontró user_id" }, { status: 400 })
+    }
+
+    // Verificar si ya existe la suscripción
+    const { data: existingSub } = await supabase
+      .from("suscripciones")
+      .select("id")
+      .eq("stripe_subscription_id", session.subscription as string)
+      .single()
+
+    // Si no existe, crearla (respaldo del webhook)
+    if (!existingSub && session.subscription) {
+      console.log('⚠️ Suscripción no encontrada, creando desde verify-session (respaldo del webhook)')
+      
+      const subscription = await stripe.subscriptions.retrieve(session.subscription as string, {
+        expand: ["items.data.price.product"],
+      }) as any
+
+      const priceId = subscription.items.data[0].price.id
+      const planType = mapPriceIdToPlanType(priceId)
+
+      // Intentar obtener las fechas de Stripe, si no están disponibles, usar fechas actuales
+      let periodStartTimestamp = subscription.current_period_start
+      let periodEndTimestamp = subscription.current_period_end
+
+      if (!periodStartTimestamp && subscription.items?.data?.[0]) {
+        const item = subscription.items.data[0]
+        periodStartTimestamp = item.current_period_start
+        periodEndTimestamp = item.current_period_end
+      }
+
+      let periodStart: Date
+      let periodEnd: Date
+
+      if (periodStartTimestamp && periodEndTimestamp) {
+        periodStart = new Date(periodStartTimestamp * 1000)
+        periodEnd = new Date(periodEndTimestamp * 1000)
+        console.log('📅 Usando fechas de Stripe')
+      } else {
+        periodStart = new Date()
+        periodEnd = new Date()
+        periodEnd.setDate(periodEnd.getDate() + 30)
+        console.log('📅 Creando fechas nuevas')
+      }
+
+      console.log('📋 Creando suscripción desde verify-session:', {
+        priceId,
+        planType,
+        restauranteId,
+        userId,
+        periodStart: periodStart.toISOString(),
+        periodEnd: periodEnd.toISOString()
+      })
+
+      // Obtener información del usuario directamente con el user_id
+      console.log('🔍 Buscando perfil de usuario:', userId)
+      const { data: userProfile, error: userError } = await supabase
+        .from('user_profiles')
+        .select('email, nombre')
+        .eq('id', userId)
+        .single()
+
+      if (userError) {
+        console.error('❌ Error al obtener perfil de usuario:', userError)
+      }
+
+      console.log('📋 Perfil de usuario encontrado:', userProfile)
+
+      let userEmail = null
+      let userName = 'Usuario'
+
+      if (userProfile) {
+        userEmail = userProfile.email
+        userName = userProfile.nombre || 'Usuario'
+      }
+
+      const { error: insertError } = await supabase.from("suscripciones").insert({
+        restaurante_id: restauranteId,
+        stripe_customer_id: subscription.customer as string,
+        stripe_subscription_id: subscription.id,
+        plan_type: planType,
+        status: subscription.status,
+        current_period_start: periodStart.toISOString(),
+        current_period_end: periodEnd.toISOString(),
+        cancel_at_period_end: subscription.cancel_at_period_end,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+
+      if (insertError) {
+        console.error("❌ Error al insertar suscripción:", insertError)
+      } else {
+        console.log("✅ Suscripción creada desde verify-session (respaldo del webhook)")
+
+        // Enviar correos de confirmación
+        if (userEmail) {
+          // Obtener información dinámica del plan
+          const planInfo = await getPlanInfo(planType)
+
+          if (planInfo) {
+            const nextBillingDate = periodEnd.toLocaleDateString("es-ES", {
+              year: "numeric",
+              month: "long",
+              day: "numeric",
+            })
+
+            const features = planInfo.caracteristicas
+              .filter(c => c.incluido)
+              .map(c => c.texto)
+
+            try {
+              const confirmationTemplate = getSubscriptionConfirmationTemplate(
+                planInfo.nombre_display,
+                planInfo.precio === 0 ? 'Gratis' : `$${planInfo.precio}/mes`,
+                nextBillingDate,
+                features,
+              )
+
+              await sendCustomEmail(userEmail, confirmationTemplate)
+
+              const welcomeTemplate = getWelcomeSubscriptionTemplate(userName, planInfo.nombre_display)
+              await sendCustomEmail(userEmail, welcomeTemplate)
+
+              console.log("✅ Correos enviados desde verify-session")
+            } catch (emailError) {
+              console.error("❌ Error al enviar correos:", emailError)
+            }
+          }
+        }
+      }
+    } else {
+      console.log('✅ Suscripción ya existe en la base de datos')
+    }
+
+    return NextResponse.json({ 
+      success: true, 
+      sessionId: session.id,
+      status: session.payment_status 
+    })
+  } catch (error) {
+    console.error("❌ Error verificando sesión:", error)
+    return NextResponse.json({ 
+      error: "Error al verificar la sesión",
+      details: error instanceof Error ? error.message : 'Unknown error'
+    }, { status: 500 })
+  }
+}
+````
+
+## 🔧 Cambios Principales:
+
+1. **Eliminé** la búsqueda de `restaurantes.user_id` (que no existe)
+2. **Uso directo** del `user_id` que ya viene en `session.metadata`
+3. **Eliminé** el intento de actualizar `restaurantes.activo` (que tampoco existe)
+4. **Simplificado** el flujo: `user_id` → `user_profiles` → `email`
+
+¡Ahora debería funcionar! Haz otro pago de prueba y deberías ver los emails enviándose correctamente. 🚀
+
+---
+
+_**User (2025-10-15 16:35Z)**_
+
+mira dime de qué tablas de mi base de datos necesitas que te pase la definicion para que puedas trabajr correctamente con ello, mira, te digo que este es la definicion de mi tabla 'restaurantes', el error que había también era que no se encontró el email del usuario, por lo que por eso no se envía el correo al usuario, por lo que te estoy proponiendo que usemos este endpoint #file:route.ts donde se obtiene la información del usuario vale?
+
+definición de mi tabla restaurantes:
+create table public.restaurantes (
+  id uuid not null default gen_random_uuid (),
+  nombre text not null,
+  nombre_contacto_legal text not null,
+  email_contacto_legal text not null,
+  telefono_contacto_legal text null,
+  direccion_fiscal text not null,
+  rfc text null,
+  fecha_registro timestamp without time zone null default now(),
+  terminos_aceptados_at timestamp without time zone null,
+  is_active boolean null default true,
+  created_at timestamp without time zone null default now(),
+  updated_at timestamp without time zone null default now(),
+  constraint restaurantes_pkey primary key (id)
+) TABLESPACE pg_default;
+
+create trigger update_restaurantes_updated_at BEFORE
+update on restaurantes for EACH row
+execute FUNCTION update_updated_at_column ();
+
+Dime si necestias la definición de cualquiera otra de mis tablas d emi base de datos para pasartela y poder trabajar de manera correcta.
+
+También quiero verificar si es que ya estamos validando en el sistema que la suscripción del usuario aun siga vigente.
+
+Algo que noté es que cuando existen dos registros del mismo restaurante en la tabla 'suscripciones' el sistema truena y manda todo null ya que pues la busqueda te dice que mande solo uno y hay mas de uno, entonces sería buscar el más reciente o el que esté activo o no cancelado, lo digo esto ya que debemos poder manejar que el usuario si quiere hacer un downgrade o cancelar suscripción y despues se quiere suscribir a un nuevo plan despues de haber cancelado debemos considerar que van a existir mas de un registro por restaurante ya que es lógico, te comparto la definción de mi tabla de 'suscripciones' para que sepas la definicion de cada campo y también manejemos en caso de que el restaurante cancele su suscripción.
+
+Definición de la tabla 'suscripciones':
+create table public.suscripciones (
+  id uuid not null default gen_random_uuid (),
+  restaurante_id uuid not null,
+  stripe_customer_id character varying(255) null,
+  stripe_subscription_id character varying(255) null,
+  plan_type character varying(50) not null,
+  status character varying(50) not null default 'active'::character varying,
+  current_period_start timestamp with time zone null,
+  current_period_end timestamp with time zone null,
+  cancel_at_period_end boolean null default false,
+  created_at timestamp with time zone null default now(),
+  updated_at timestamp with time zone null default now(),
+  constraint suscripciones_pkey primary key (id),
+  constraint suscripciones_restaurante_id_fkey foreign KEY (restaurante_id) references restaurantes (id)
+) TABLESPACE pg_default;
+
+ahora, también se me vino a la mente en que va a suceder si el usuario cancela su suscripción pero aun su periodo está activo, no debería dejar comprar otro? o como se manejería ese termino para no chocar con ese downgrade o que se realice correctamente para que el downgrade sea pero hasta el otro mes y que si paga el cliente pues sea para el otro mes su suscripción, o sería que si quiere downgrade que cancele la suscripción de este mes y que en el próximo mes actualice al nuevo plan que quiere??
+
+Tenemos que manejar estos casos que pueden pasar por el usuario hacer, por favor estos y algunos otros casos que tu me podrás decir que pueden suceder, dividamos las cosas que te dije en tareas por completar por favor para no mezclar todo con todo, vayamos paso a paso y también usa la lógica que se ha estado usando hasta el momento en el proyecto vale?
+
+Primero planteame en cada paso la solución que me propones y después te comento si procedemos con ello o si hay algunas dudas. modificaciones, etc que puedan sucitarse de acuerdo?? :D
+
+---
+
+_**Assistant (copilot/claude-sonnet-4.5)**_
+
+¡Perfecto! Veo claramente los problemas y tengo las soluciones. Vamos paso a paso como sugeriste. Primero déjame analizar todo:
+
+## 📋 Tablas que necesito conocer:
+
+✅ **Ya tengo:**
+- `restaurantes` - Definición recibida
+- `suscripciones` - Definición recibida
+
+❓ **Necesito conocer:**
+1. **`user_profiles`** - Para entender la relación entre usuarios y restaurantes
+2. **`configuraciones_sistema`** - Para ver si hay alguna config relacionada con suscripciones
+
+Por favor pásame estas dos definiciones.
+
+---
+
+## 🎯 Problemas Identificados y Soluciones Propuestas
+
+### **TAREA 1: Obtener correctamente el email del usuario**
+
+#### 📊 Problema Actual:
+- No se encuentra el email del usuario
+- El webhook no puede enviar correos
+
+#### 💡 Solución Propuesta:
+Usar el endpoint `/api/auth/me` que ya existe y funciona. En lugar de hacer la query directamente en el webhook, podemos:
+
+**Opción A (Recomendada):** Usar directamente `user_profiles` con el `user_id` de metadata:
+```typescript
+const { data: userProfile } = await supabase
+  .from('user_profiles')
+  .select('email, nombre')
+  .eq('id', userId)
+  .single()
+```
+
+**Opción B:** Crear una función helper que replique la lógica de `/api/auth/me`:
+```typescript
+async function getUserInfo(userId: string, supabase: any) {
+  const { data: profile } = await supabase
+    .from('user_profiles')
+    .select('*')
+    .eq('id', userId)
+    .single()
+  
+  return profile
+}
+```
+
+**¿Cuál prefieres?** Yo recomiendo la Opción A por simplicidad.
+
+---
+
+### **TAREA 2: Manejar múltiples suscripciones del mismo restaurante**
+
+#### 📊 Problema Actual:
+- La query usa `.single()` y truena cuando hay más de un registro
+- No considera el registro más reciente o activo
+
+#### 💡 Solución Propuesta:
+
+**Para CONSULTAS (buscar suscripción activa):**
+```typescript
+// Buscar la suscripción ACTIVA más reciente
+const { data: activeSub } = await supabase
+  .from('suscripciones')
+  .select('*')
+  .eq('restaurante_id', restauranteId)
+  .in('status', ['active', 'trialing'])
+  .order('created_at', { ascending: false })
+  .limit(1)
+  .single()
+```
+
+**Para INSERCIONES (evitar duplicados):**
+```typescript
+// Verificar si ya existe una suscripción ACTIVA con el mismo stripe_subscription_id
+const { data: existingSub } = await supabase
+  .from('suscripciones')
+  .select('id, status')
+  .eq('stripe_subscription_id', subscription.id)
+  .maybeSingle() // Cambiamos .single() por .maybeSingle()
+
+if (existingSub) {
+  console.log('✅ Suscripción ya existe, actualizando...')
+  // Actualizar en lugar de insertar
+} else {
+  // Insertar nueva
+}
+```
+
+**¿Te parece bien este enfoque?**
+
+---
+
+### **TAREA 3: Validar suscripción vigente en el sistema**
+
+#### 📊 Problema Actual:
+- No hay validación de que la suscripción esté activa en la app
+
+#### 💡 Solución Propuesta:
+
+Crear un middleware/helper para validar suscripciones:
+
+```typescript
+// lib/subscription/validate-subscription.ts
+export async function validateSubscription(restauranteId: string) {
+  const supabase = createServiceRoleClient()
+  
+  const { data: subscription } = await supabase
+    .from('suscripciones')
+    .select('*')
+    .eq('restaurante_id', restauranteId)
+    .in('status', ['active', 'trialing'])
+    .gte('current_period_end', new Date().toISOString()) // Periodo no vencido
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+  
+  return {
+    isActive: !!subscription,
+    subscription,
+    hasExpired: subscription ? new Date(subscription.current_period_end) < new Date() : true
+  }
+}
+```
+
+**¿Dónde lo usarías?** En routes protegidas, dashboards, etc.
+
+---
+
+### **TAREA 4: Manejar Cancelaciones y Downgrades**
+
+#### 📊 Escenarios a Manejar:
+
+**Escenario 1:** Usuario cancela pero el periodo sigue activo
+```
+Plan Premium hasta: 15 Nov 2025
+Usuario cancela: 20 Oct 2025
+¿Qué pasa?: Sigue con Premium hasta 15 Nov, luego se desactiva
+```
+
+**Escenario 2:** Usuario quiere hacer downgrade
+```
+Plan Premium hasta: 15 Nov 2025
+Usuario quiere Standard: 20 Oct 2025
+```
+
+#### 💡 Soluciones Propuestas:
+
+**OPCIÓN A - Cambio inmediato con prorrateo (Stripe maneja esto):**
+- El cambio se hace de inmediato
+- Stripe calcula el prorrateo automáticamente
+- Se actualiza el registro en BD
+
+**OPCIÓN B - Cambio al final del periodo:**
+- Se programa el cambio con `cancel_at_period_end = true`
+- Se crea un registro "pendiente" para el nuevo plan
+- Al vencer el periodo actual, se activa el nuevo plan
+
+**¿Cuál prefieres?** 
+
+Mi recomendación: **Opción B** porque:
+1. Es más claro para el usuario
+2. No hay confusión con cargos
+3. El usuario aprovecha lo que ya pagó
+
+#### 🔧 Implementación propuesta para Opción B:
+
+```typescript
+// Cuando el usuario hace downgrade/upgrade:
+async function scheduleSubscriptionChange(
+  restauranteId: string,
+  currentStripeSubId: string,
+  newPlanType: string
+) {
+  // 1. Marcar la suscripción actual para cancelarse al final del periodo
+  await stripe.subscriptions.update(currentStripeSubId, {
+    cancel_at_period_end: true
+  })
+  
+  // 2. Actualizar en BD
+  await supabase
+    .from('suscripciones')
+    .update({
+      cancel_at_period_end: true,
+      updated_at: new Date().toISOString()
+    })
+    .eq('stripe_subscription_id', currentStripeSubId)
+  
+  // 3. El webhook de stripe.subscription.deleted se encargará del resto
+}
+```
+
+---
+
+### **TAREA 5: Webhook para manejar cancelaciones**
+
+#### 💡 Solución Propuesta:
+
+Ya tienes `handleSubscriptionDeleted`, pero mejorarla:
+
+```typescript
+async function handleSubscriptionDeleted(subscription: Stripe.Subscription, supabase: any) {
+  // 1. Marcar suscripción como cancelada
+  await supabase
+    .from('suscripciones')
+    .update({
+      status: 'canceled',
+      updated_at: new Date().toISOString()
+    })
+    .eq('stripe_subscription_id', subscription.id)
+  
+  // 2. Enviar email de cancelación (opcional)
+  
+  // 3. Si tenían plan programado, activarlo (para downgrades)
+}
+```
+
+---
+
+## 📝 Resumen de Tareas Propuestas:
+
+1. ✅ **TAREA 1:** Obtener email del usuario - Usar `user_profiles` directamente
+2. ✅ **TAREA 2:** Manejar múltiples suscripciones - Usar `.maybeSingle()` y ordenar por fecha
+3. ✅ **TAREA 3:** Validar suscripción vigente - Crear helper `validateSubscription()`
+4. ❓ **TAREA 4:** Downgrades/Upgrades - ¿Opción A (inmediato) u Opción B (al final del periodo)?
+5. ✅ **TAREA 5:** Mejorar webhook de cancelación
+
+---
+
+## ❓ Preguntas para ti:
+
+1. **¿Me pasas la definición de `user_profiles`?**
+2. **Para downgrades, ¿prefieres cambio inmediato (A) o al final del periodo (B)?**
+3. **¿Quieres que el sistema permita tener múltiples suscripciones activas o solo una a la vez?**
+4. **¿Comenzamos con la TAREA 1 (arreglar el email)?**
+
+Esperando tus respuestas para proceder paso a paso. 🚀
+
+---
+
+_**User (2025-10-15 16:44Z)**_
+
+definición de 'user_profiles':
+create table public.user_profiles (
+  id uuid not null,
+  role text not null default 'admin'::text,
+  restaurante_id uuid null,
+  sucursal_id uuid null,
+  nombre text null,
+  apellidos text null,
+  fecha_nacimiento date null,
+  telefono text null,
+  country_code text null default '+52'::text,
+  avatar_url text null,
+  is_active boolean null default true,
+  is_first_login boolean null default true,
+  temp_password text null,
+  created_at timestamp without time zone null default now(),
+  updated_at timestamp without time zone null default now(),
+  verification_code numeric null,
+  verification_code_expires_at numeric null,
+  email_verified boolean null,
+  email text null,
+  "isVerified" boolean null default false,
+  constraint user_profiles_pkey primary key (id),
+  constraint user_profiles_email_key unique (email),
+  constraint user_profiles_id_fkey foreign KEY (id) references auth.users (id) on delete CASCADE,
+  constraint user_profiles_restaurante_id_fkey foreign KEY (restaurante_id) references restaurantes (id) on delete set null,
+  constraint user_profiles_sucursal_id_fkey foreign KEY (sucursal_id) references sucursales (id) on delete set null,
+  constraint user_profiles_role_check check (
+    (
+      role = any (
+        array[
+          'admin'::text,
+          'sucursal'::text,
+          'superadmin'::text
+        ]
+      )
+    )
+  )
+) TABLESPACE pg_default;
+
+create index IF not exists idx_user_profiles_restaurante on public.user_profiles using btree (restaurante_id) TABLESPACE pg_default;
+
+create index IF not exists idx_user_profiles_sucursal on public.user_profiles using btree (sucursal_id) TABLESPACE pg_default;
+
+create index IF not exists idx_user_profiles_restaurante_id on public.user_profiles using btree (restaurante_id) TABLESPACE pg_default;
+
+create index IF not exists idx_user_profiles_sucursal_id on public.user_profiles using btree (sucursal_id) TABLESPACE pg_default;
+
+create index IF not exists idx_user_profiles_role on public.user_profiles using btree (role) TABLESPACE pg_default;
+
+create trigger update_user_profiles_updated_at BEFORE
+update on user_profiles for EACH row
+execute FUNCTION update_updated_at_column ();
+
+un ejemplo de registro es el siguiente (LO COPIE DE SUPABASE COMO JSON PERO INTERPRETA LA INFORMACIÓN VALE?):
+[{"idx":0,"id":"0bb84c57-2519-4e5c-847a-f061972b445b","role":"admin","restaurante_id":"f9e714a2-821f-49db-a03f-8c14413f4cec","sucursal_id":null,"nombre":"Saul","apellidos":"Goodman","fecha_nacimiento":"2006-12-09","telefono":"3333333","country_code":"+52","avatar_url":null,"is_active":true,"is_first_login":false,"temp_password":null,"created_at":"2025-10-13 19:31:22.778575","updated_at":"2025-10-13 19:32:28.769029","verification_code":null,"verification_code_expires_at":null,"email_verified":false,"email":"ogmf234@gmail.com","isVerified":false}]
+
+Definición de la tabla 'configuraciones_sistema':
+create table public.configuraciones_sistema (
+  id uuid not null default gen_random_uuid (),
+  clave character varying(100) not null,
+  valor jsonb not null,
+  descripcion text null,
+  updated_at timestamp with time zone null default now(),
+  created_at timestamp with time zone null default now(),
+  constraint configuraciones_sistema_pkey primary key (id),
+  constraint configuraciones_sistema_clave_key unique (clave)
+) TABLESPACE pg_default;
+
+Información dentro de 'configuraciones_sistema':
+[{"idx":0,"id":"088d647f-a0bc-4e49-9cf3-52c08cd1e871","clave":"modo_mantenimiento","valor":"false","descripcion":"Modo mantenimiento global","updated_at":"2025-09-17 16:26:48.072088+00","created_at":"2025-09-17 16:26:48.072088+00"},{"idx":1,"id":"3a8873a5-4d91-4a20-89bd-cdc7f7aec594","clave":"comision_porcentaje","valor":"0","descripcion":"Porcentaje de comisión por pedido","updated_at":"2025-09-17 16:26:48.072088+00","created_at":"2025-09-17 16:26:48.072088+00"},{"idx":2,"id":"558b6f9e-0a5b-4285-8399-d12c7533a165","clave":"sistema_activo","valor":"true","descripcion":"Si el sistema está operativo","updated_at":"2025-09-17 16:26:48.072088+00","created_at":"2025-09-17 16:26:48.072088+00"},{"idx":3,"id":"b05c0bf3-0d4f-4bf3-9f3f-1e9e4f443ef0","clave":"planes_limites","valor":"{\"trial\": {\"precio\": 0, \"popular\": false, \"descripcion\": \"Perfecto para empezar a conocer la plataforma\", \"max_pedidos\": 100, \"recomendado\": false, \"max_sucursales\": 3, \"nombre_display\": \"Plan de Prueba\", \"caracteristicas\": [{\"texto\": \"Hasta 3 sucursales\", \"incluido\": true}, {\"texto\": \"Hasta 100 pedidos por mes\", \"incluido\": true}, {\"texto\": \"Dashboard básico\", \"incluido\": true}, {\"texto\": \"Soporte por email\", \"incluido\": true}, {\"texto\": \"Reportes avanzados\", \"incluido\": false}, {\"texto\": \"API access\", \"incluido\": false}, {\"texto\": \"Soporte prioritario\", \"incluido\": false}]}, \"premium\": {\"precio\": 59.99, \"popular\": false, \"descripcion\": \"Para restaurantes grandes y cadenas\", \"max_pedidos\": \"unlimited\", \"recomendado\": true, \"max_sucursales\": \"unlimited\", \"nombre_display\": \"Plan Premium\", \"caracteristicas\": [{\"texto\": \"Sucursales ilimitadas\", \"incluido\": true}, {\"texto\": \"Pedidos ilimitados\", \"incluido\": true}, {\"texto\": \"Dashboard avanzado\", \"incluido\": true}, {\"texto\": \"Soporte prioritario 24/7\", \"incluido\": true}, {\"texto\": \"Reportes avanzados\", \"incluido\": true}, {\"texto\": \"API access completo\", \"incluido\": true}, {\"texto\": \"Integración personalizada\", \"incluido\": true}]}, \"standard\": {\"precio\": 29.99, \"popular\": true, \"descripcion\": \"Ideal para restaurantes pequeños y medianos\", \"max_pedidos\": \"unlimited\", \"recomendado\": false, \"max_sucursales\": 10, \"nombre_display\": \"Plan Estándar\", \"caracteristicas\": [{\"texto\": \"Hasta 10 sucursales\", \"incluido\": true}, {\"texto\": \"Pedidos ilimitados\", \"incluido\": true}, {\"texto\": \"Dashboard completo\", \"incluido\": true}, {\"texto\": \"Soporte por email\", \"incluido\": true}, {\"texto\": \"Reportes básicos\", \"incluido\": true}, {\"texto\": \"API access\", \"incluido\": false}, {\"texto\": \"Soporte prioritario\", \"incluido\": false}]}}","descripcion":"Límites y características de cada plan","updated_at":"2025-09-17 16:26:48.072088+00","created_at":"2025-09-17 16:26:48.072088+00"},{"idx":4,"id":"b794bf17-82a7-4842-b32c-e0b7385c5bbf","clave":"stripe_productos","valor":"{\"trial\": \"price_1S2cneGUALJmASwd8ThXXgZm\", \"premium\": \"price_1S2cqiGUALJmASwdYuvUzM2A\", \"standard\": \"price_1S2cp1GUALJmASwdoAAQ5QwR\"}","descripcion":"IDs de precios en Stripe","updated_at":"2025-09-17 16:26:48.072088+00","created_at":"2025-09-17 16:26:48.072088+00"}]
+
+Para obtener el mail del usuario, está bien usemos por simplicidad y velocidad la opcion a) pero que nos funcione de manera correcta para que no falle el envío del correo a causa de que no se encontró el correo.
+
+Para el manejo de multiples suscripciones del mismo restaurante:
+¿Te parece bien este enfoque?
+R = Me parece bien 
+
+📊 Problema Actual:
+No hay validación de que la suscripción esté activa en la app
+💡 Solución Propuesta:
+Crear un middleware/helper para validar suscripciones:
+
+Si hay algo que valida que suscripción tiene actualmente el restaurante y me parece por el código que es: #file:use-subscription.ts tu me confimarás eso por favor.
+
+SOBRE LA TAREA 4: CANCELACIONES Y DOWNGRADES:
+
+hablamos sobre prorrateo pero eso significa que el sistema le devolverá el dinero al usuario o como es que se manejará eso, a que te refieres que se hará?
+
+De solucion para esta tarea me parece bien el enfoque B) donde no hay prorrateo y mejor se hace el cambio al final del periodo!!
+
+Analiza toda esta información y veamos si es que necesitas mas informacion,  pideme toda la ifnormacion que necesites para poder trabajar de manera correcta por favor.
+
+---
+
+_**Assistant (copilot/claude-sonnet-4.5)**_
+
+¡Perfecto! Ya tengo toda la información necesaria. Déjame analizar y confirmar todo:
+
+---
+
+## ✅ CONFIRMACIONES
+
+### 1. **Estructura de tablas - ENTENDIDO**
+
+- ✅ `user_profiles` tiene el campo `email` directamente
+- ✅ `restaurante_id` está en `user_profiles` (relación clara)
+- ✅ `suscripciones` tiene todos los campos necesarios
+- ✅ `configuraciones_sistema` almacena los planes y price_ids de Stripe
+
+### 2. **Validación de suscripción activa**
+
+Sí, confirmado: **`use-subscription.ts`** es el hook que valida la suscripción activa del restaurante. Veo que:
+
+```typescript
+const response = await fetch(`/api/subscription/data?restauranteId=${profile.restaurante_id}`)
+```
+
+Usa un endpoint `/api/subscription/data` que necesitamos revisar. **¿Me compartes ese archivo?** Para verificar que esté consultando correctamente.
+
+### 3. **Sobre PRORRATEO (explicación)**
+
+El **prorrateo** en Stripe significa:
+
+**Ejemplo con prorrateo (Opción A que NO usaremos):**
+```
+Usuario tiene Premium ($60/mes)
+Pagó el 1 Oct por todo octubre
+El 15 Oct hace downgrade a Standard ($30/mes)
+
+Stripe calcula:
+- 15 días restantes de Premium = $30
+- Le cobra inmediatamente Standard = $30
+- Resta lo que ya pagó = $30 - $30 = $0
+- El usuario NO paga nada extra, pero tampoco le devuelven
+```
+
+**Con Opción B (SIN prorrateo - que SÍ usaremos):**
+```
+Usuario tiene Premium ($60/mes)
+Pagó el 1 Oct por todo octubre  
+El 15 Oct hace downgrade a Standard
+
+Resultado:
+- Sigue con Premium hasta el 31 Oct (aprovecha lo que pagó)
+- El 1 Nov se le cobra Standard ($30/mes)
+- Más claro y simple para el usuario
+```
+
+✅ **Confirmado: Usaremos Opción B (cambio al final del periodo)**
+
+---
+
+## 📋 INFORMACIÓN QUE NECESITO
+
+Por favor compárteme estos archivos para completar el análisis:
+
+1. **`/api/subscription/data/route.ts`** - Para ver cómo consulta la suscripción activa
+2. **Algún archivo donde se cree el checkout de Stripe** - Para verificar que se esté pasando el `user_id` en metadata
+
+---
+
+## 🎯 PLAN DE IMPLEMENTACIÓN (Paso a paso)
+
+### **PASO 1: Arreglar obtención de email y envío de correos**
+
+**Cambios en webhook:**
+
+````typescript
+async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session, supabase: any) {
+    try {
+        const restauranteId = session.metadata?.restaurante_id
+        const userId = session.metadata?.user_id
+
+        if (!restauranteId || !userId) {
+            console.error('❌ Faltan datos en metadata:', { restauranteId, userId })
+            return
+        }
+
+        // ... código de suscripción ...
+
+        // ✅ OBTENER EMAIL DIRECTAMENTE DE user_profiles
+        console.log('🔍 Obteniendo perfil de usuario:', userId)
+        
+        const { data: userProfile, error: profileError } = await supabase
+            .from('user_profiles')
+            .select('email, nombre, apellidos')
+            .eq('id', userId)
+            .single()
+
+        if (profileError) {
+            console.error('❌ Error obteniendo perfil:', profileError)
+            // Continuar sin enviar emails pero sin fallar el webhook
+        }
+
+        const userEmail = userProfile?.email
+        const userName = userProfile?.nombre || 'Usuario'
+        
+        console.log('📧 Datos del usuario:', { 
+            userEmail, 
+            userName,
+            hasEmail: !!userEmail 
+        })
+
+        // ... resto del código de guardado ...
+
+        // ENVIAR CORREOS
+        if (userEmail) {
+            console.log('📧 Enviando correos a:', userEmail)
+            // ... código de envío ...
+        } else {
+            console.warn('⚠️ No se encontró email, no se enviarán correos')
+        }
+
+    } catch (error) {
+        console.error('❌ Error en handleCheckoutSessionCompleted:', error)
+        throw error
+    }
+}
+````
+
+**¿Procedo a aplicar este cambio?**
+
+---
+
+### **PASO 2: Manejar múltiples suscripciones (evitar .single() error)**
+
+**Cambios en consultas:**
+
+````typescript
+// En cualquier lugar donde se consulte suscripción
+
+// ❌ ANTES (truena con múltiples registros):
+const { data: sub } = await supabase
+    .from('suscripciones')
+    .select('*')
+    .eq('restaurante_id', restauranteId)
+    .single()
+
+// ✅ DESPUÉS (obtiene la más reciente y activa):
+const { data: sub } = await supabase
+    .from('suscripciones')
+    .select('*')
+    .eq('restaurante_id', restauranteId)
+    .in('status', ['active', 'trialing'])
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle() // Retorna null si no encuentra, no truena
+````
+
+**¿Quieres que busque todos los lugares donde se usa `.single()` para suscripciones y los actualice?**
+
+---
+
+### **PASO 3: Mejorar webhook para evitar duplicados**
+
+````typescript
+async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session, supabase: any) {
+    // ... código anterior ...
+
+    // ✅ VERIFICAR SI YA EXISTE antes de insertar
+    const { data: existingSub } = await supabase
+        .from('suscripciones')
+        .select('id, status')
+        .eq('stripe_subscription_id', subscription.id)
+        .maybeSingle()
+
+    if (existingSub) {
+        console.log('✅ Suscripción ya existe, actualizando...')
+        
+        // Actualizar en lugar de insertar
+        await supabase
+            .from('suscripciones')
+            .update({
+                status: subscription.status,
+                current_period_start: periodStart.toISOString(),
+                current_period_end: periodEnd.toISOString(),
+                updated_at: new Date().toISOString()
+            })
+            .eq('id', existingSub.id)
+    } else {
+        // Insertar nueva
+        await supabase.from('suscripciones').insert({ ... })
+    }
+}
+````
+
+**¿Te parece bien este flujo?**
+
+---
+
+### **PASO 4: Implementar cancelaciones con Opción B**
+
+**Crear nuevo endpoint para cancelar:**
+
+````typescript
+export async function POST(req: Request) {
+    const { restauranteId, cancelNow } = await req.json()
+    
+    // Obtener suscripción activa
+    const { data: sub } = await supabase
+        .from('suscripciones')
+        .select('*')
+        .eq('restaurante_id', restauranteId)
+        .in('status', ['active', 'trialing'])
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+
+    if (!sub) {
+        return NextResponse.json({ error: 'No hay suscripción activa' }, { status: 404 })
+    }
+
+    if (cancelNow) {
+        // Cancelación inmediata (para superadmin)
+        await stripe.subscriptions.cancel(sub.stripe_subscription_id)
+    } else {
+        // Cancelación al final del periodo (normal)
+        await stripe.subscriptions.update(sub.stripe_subscription_id, {
+            cancel_at_period_end: true
+        })
+    }
+
+    // Actualizar en BD
+    await supabase
+        .from('suscripciones')
+        .update({
+            cancel_at_period_end: !cancelNow,
+            status: cancelNow ? 'canceled' : sub.status,
+            updated_at: new Date().toISOString()
+        })
+        .eq('id', sub.id)
+
+    return NextResponse.json({ success: true })
+}
+````
+
+**¿Te parece bien esta estructura?**
+
+---
+
+### **PASO 5: Webhook mejorado para cancelaciones**
+
+````typescript
+async function handleSubscriptionDeleted(subscription: Stripe.Subscription, supabase: any) {
+    try {
+        console.log('🗑️ Procesando cancelación de suscripción:', subscription.id)
+
+        // Marcar como cancelada
+        const { data: canceledSub } = await supabase
+            .from('suscripciones')
+            .update({
+                status: 'canceled',
+                updated_at: new Date().toISOString()
+            })
+            .eq('stripe_subscription_id', subscription.id)
+            .select('restaurante_id')
+            .single()
+
+        if (canceledSub) {
+            // Enviar email de cancelación (opcional)
+            console.log('✅ Suscripción cancelada para restaurante:', canceledSub.restaurante_id)
+        }
+
+    } catch (error) {
+        console.error('❌ Error en handleSubscriptionDeleted:', error)
+    }
+}
+````
+
+---
+
+## ❓ PREGUNTAS ANTES DE CONTINUAR:
+
+1. **¿Me compartes `/api/subscription/data/route.ts`?**
+2. **¿Procedo con PASO 1 (arreglar emails)?**
+3. **¿Quieres que implemente un endpoint para cambiar de plan (upgrade/downgrade)?**
+4. **¿El plan Trial se asigna automáticamente o el usuario debe comprarlo también?**
+
+Una vez me confirmes, procedo a implementar paso a paso. 🚀
+
+---
+
+_**User (2025-10-15 16:53Z)**_
+
+de acuerdo te comparto los archivos que me pediste:
+
+Este es el archivo data/route.ts
+#file:data 
+
+Ahora este es el archivo donde se crea el checkout de stripe:
+#file:checkout 
+
+¿Me compartes /api/subscription/data/route.ts?
+Listo, está mas arriba
+¿Procedo con PASO 1 (arreglar emails)?
+Sii!!
+¿Quieres que implemente un endpoint para cambiar de plan (upgrade/downgrade)?
+De acuerdo, sigue la lógica de control que llevamos en el api como se hace actualmente de acuerdo?
+¿El plan Trial se asigna automáticamente o el usuario debe comprarlo también?
+R= el usuario tiene que comprarlo para que se gaurde en la base de datos va??
+
+---
+
+_**Assistant (copilot/claude-sonnet-4.5)**_
+
+¡Perfecto! Ya tengo toda la información. Veo que:
+
+1. ✅ En `/api/stripe/checkout` **YA se está pasando el `user_id`** en metadata (línea con `user_id: user.id`)
+2. ✅ En `/api/subscription/data` usa `.single()` que puede tronar con múltiples suscripciones
+
+Vamos a proceder paso a paso:
+
+---
+
+## 🎯 PASO 1: Arreglar obtención de email y envío de correos Primero voy a leer el archivo de checkout para confirmar dónde está el user_id: ¡Perfecto! Ya veo que el `user_id` está en metadata (línea 72). Ahora voy a actualizar el webhook: Ahora voy a reemplazar la sección donde se obtiene el usuario para usar directamente el user_id de metadata: 
+```
+
+```
+
+```
+
+```
+Ahora voy a buscar la parte donde se envían los correos para agregar más logs: Voy a eliminar la sección que intenta actualizar `restaurantes.activo` ya que ese campo no existe: 
+```
+
+```
+
+```
+
+```
+Ahora actualizo verify-session con el mismo fix: 
+```
+
+```
+
+```
+
+```
+Perfecto, ahora necesito actualizar la sección donde se envían los emails para que coincida con el patrón del webhook: Ahora actualizaré la sección de envío de emails y eliminaré la actualización del campo `activo`: 
+```
+
+```
+Perfecto! He completado el **Paso 2** exitosamente. Ahora ambos archivos (webhook y verify-session) usan el mismo patrón corregido para obtener el email del usuario.
+
+## ✅ Cambios aplicados en verify-session/route.ts:
+
+1. **Eliminada consulta innecesaria a `restaurantes`** - Ya no intentamos obtener `user_id` desde la tabla restaurantes (campo inexistente)
+
+2. **Obtención directa del email** - Ahora consultamos `user_profiles` directamente usando el `user_id` que viene en `session.metadata`
+
+3. **Logs detallados** - Agregué el mismo patrón de logging que en el webhook para facilitar el debugging
+
+4. **Eliminada actualización de campo inexistente** - Removí el intento de actualizar `restaurantes.activo` que no existe en el schema
+
+## 📋 Próximos pasos:
+
+**Paso 3**: Corregir `route.ts` para manejar múltiples suscripciones sin errores `.single()`
+
+¿Quieres que continúe con el Paso 3?
+
+---
+
+_**User (2025-10-15 16:57Z)**_
+
+si por favor!!
+
+---
+
+_**Assistant (copilot/claude-sonnet-4.5)**_
+
+¡Perfecto! Voy a continuar con el **Paso 3**: Corregir `/api/subscription/data` para manejar múltiples suscripciones. Perfecto, encontré el problema. En la línea 31 está usando `.single()` con un filtro `.eq('status', 'active')`, pero esto fallará si hay múltiples suscripciones activas. Voy a corregirlo: 
+```
+
+```
+Excelente! Ahora voy a verificar si hay más lugares en el archivo que necesiten corrección: Los otros `.single()` están bien porque son para:
+- Línea 49: `configuraciones_sistema` - Solo hay un registro con `clave = 'planes_limites'`
+- Línea 63 y 78: `uso_restaurantes` - Solo debe haber un registro por restaurante y mes
+
+El cambio crítico era el de la suscripción. Ahora marquemos el paso 3 como completado y verifiquemos que no hay errores: 
 
 ---
 

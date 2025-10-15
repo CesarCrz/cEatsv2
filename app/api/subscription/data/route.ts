@@ -24,15 +24,19 @@ export async function GET(request: NextRequest) {
 
     const supabaseAdmin = createServiceRoleClient()
 
-    // 1. Obtener suscripción
+    // 1. Obtener suscripción activa más reciente
+    // Usar maybeSingle() para evitar errores cuando hay múltiples suscripciones
+    // Filtrar por status activo o trialing, ordenar por fecha de creación DESC
     const { data: subscriptionData, error: subError } = await supabaseAdmin
       .from('suscripciones')
       .select('*')
       .eq('restaurante_id', restauranteId)
-      .eq('status', 'active')
-      .single()
+      .in('status', ['active', 'trialing'])
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
 
-    if (subError && subError.code !== 'PGRST116') throw subError
+    if (subError) throw subError
 
     // ✅ NO asumir 'trial' por defecto - usar null si no hay suscripción
     const currentPlan = subscriptionData?.plan_type || null
