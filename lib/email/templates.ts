@@ -380,15 +380,12 @@ export function getSubscriptionConfirmationTemplate(
             <tr>
                 <td align="center">
                     <table width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">
-                         Header 
                         <tr>
                             <td style="background: linear-gradient(135deg, #2563eb 0%, #1e40af 100%); padding: 40px 30px; text-align: center;">
                                 <h1 style="color: #ffffff; margin: 0; font-size: 32px; font-weight: 700; letter-spacing: -0.5px;">cEats</h1>
                                 <p style="color: rgba(255, 255, 255, 0.9); margin: 8px 0 0 0; font-size: 14px; font-weight: 500;">Gestión Inteligente de Pedidos</p>
                             </td>
                         </tr>
-                        
-                         Success Icon 
                         <tr>
                             <td style="padding: 40px 40px 20px 40px; text-align: center;">
                                 <div style="width: 80px; height: 80px; background: linear-gradient(135deg, #10b981 0%, #059669 100%); border-radius: 50%; margin: 0 auto; display: flex; align-items: center; justify-content: center;">
@@ -396,8 +393,6 @@ export function getSubscriptionConfirmationTemplate(
                                 </div>
                             </td>
                         </tr>
-                        
-                         Content 
                         <tr>
                             <td style="padding: 20px 40px 50px 40px;">
                                 <h2 style="color: #1e293b; margin: 0 0 15px 0; font-size: 28px; font-weight: 600; text-align: center;">¡Suscripción Confirmada!</h2>
@@ -405,8 +400,6 @@ export function getSubscriptionConfirmationTemplate(
                                 <p style="color: #64748b; line-height: 1.6; margin: 0 0 30px 0; font-size: 16px; text-align: center;">
                                     Tu suscripción al plan <strong style="color: #1e293b;">${planName}</strong> ha sido procesada exitosamente.
                                 </p>
-                                
-                                 Plan Details 
                                 <table width="100%" cellpadding="0" cellspacing="0" style="margin: 30px 0;">
                                     <tr>
                                         <td style="background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%); border: 2px solid #2563eb; border-radius: 12px; padding: 30px;">
@@ -447,8 +440,6 @@ export function getSubscriptionConfirmationTemplate(
                                         </td>
                                     </tr>
                                 </table>
-                                
-                                 Features 
                                 <table width="100%" cellpadding="0" cellspacing="0" style="margin: 30px 0;">
                                     <tr>
                                         <td style="background-color: #f0f9ff; border: 2px solid #0ea5e9; border-radius: 12px; padding: 30px;">
@@ -470,8 +461,6 @@ export function getSubscriptionConfirmationTemplate(
                                         </td>
                                     </tr>
                                 </table>
-                                
-                                 CTA Button 
                                 <table width="100%" cellpadding="0" cellspacing="0" style="margin: 40px 0;">
                                     <tr>
                                         <td align="center">
@@ -481,8 +470,6 @@ export function getSubscriptionConfirmationTemplate(
                                         </td>
                                     </tr>
                                 </table>
-                                
-                                 Info Notice 
                                 <table width="100%" cellpadding="0" cellspacing="0" style="margin: 30px 0;">
                                     <tr>
                                         <td style="background-color: #f1f5f9; border-left: 4px solid #64748b; border-radius: 8px; padding: 20px;">
@@ -494,8 +481,6 @@ export function getSubscriptionConfirmationTemplate(
                                 </table>
                             </td>
                         </tr>
-                        
-                         Footer 
                         <tr>
                             <td style="background-color: #f8fafc; padding: 30px 40px; text-align: center; border-top: 1px solid #e2e8f0;">
                                 <p style="color: #94a3b8; margin: 0 0 8px 0; font-size: 13px; line-height: 1.5;">
@@ -535,15 +520,12 @@ export function getWelcomeSubscriptionTemplate(userName: string, planName: strin
             <tr>
                 <td align="center">
                     <table width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">
-                         Header 
                         <tr>
                             <td style="background: linear-gradient(135deg, #2563eb 0%, #1e40af 100%); padding: 50px 30px; text-align: center;">
                                 <h1 style="color: #ffffff; margin: 0; font-size: 36px; font-weight: 700; letter-spacing: -0.5px;">¡Bienvenido a cEats!</h1>
                                 <p style="color: rgba(255, 255, 255, 0.9); margin: 12px 0 0 0; font-size: 16px; font-weight: 500;">Estamos emocionados de tenerte con nosotros</p>
                             </td>
                         </tr>
-                        
-                         Content 
                         <tr>
                             <td style="padding: 50px 40px;">
                                 <p style="color: #64748b; line-height: 1.6; margin: 0 0 25px 0; font-size: 16px;">
@@ -553,8 +535,6 @@ export function getWelcomeSubscriptionTemplate(userName: string, planName: strin
                                 <p style="color: #64748b; line-height: 1.6; margin: 0 0 30px 0; font-size: 16px;">
                                     Gracias por confiar en <strong style="color: #1e293b;">cEats</strong> para gestionar los pedidos de tu restaurante. Has dado el primer paso para transformar la manera en que recibes y gestionas pedidos por WhatsApp.
                                 </p>
-                                
-                                 Plan Badge 
                                 <table width="100%" cellpadding="0" cellspacing="0" style="margin: 30px 0;">
                                     <tr>
                                         <td align="center">
@@ -564,8 +544,6 @@ export function getWelcomeSubscriptionTemplate(userName: string, planName: strin
                                         </td>
                                     </tr>
                                 </table>
-                                
-                                 Getting Started 
                                 <table width="100%" cellpadding="0" cellspacing="0" style="margin: 40px 0;">
                                     <tr>
                                         <td style="background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%); border: 2px solid #2563eb; border-radius: 12px; padding: 35px;">
@@ -636,8 +614,6 @@ export function getWelcomeSubscriptionTemplate(userName: string, planName: strin
                                         </td>
                                     </tr>
                                 </table>
-                                
-                                 CTA Button 
                                 <table width="100%" cellpadding="0" cellspacing="0" style="margin: 40px 0;">
                                     <tr>
                                         <td align="center">
@@ -646,9 +622,7 @@ export function getWelcomeSubscriptionTemplate(userName: string, planName: strin
                                             </a>
                                         </td>
                                     </tr>
-                                </table>
-                                
-                                 Support 
+                                </table> 
                                 <table width="100%" cellpadding="0" cellspacing="0" style="margin: 40px 0;">
                                     <tr>
                                         <td style="background-color: #f0f9ff; border: 2px solid #0ea5e9; border-radius: 12px; padding: 30px; text-align: center;">
@@ -669,8 +643,6 @@ export function getWelcomeSubscriptionTemplate(userName: string, planName: strin
                                 </p>
                             </td>
                         </tr>
-                        
-                         Footer 
                         <tr>
                             <td style="background-color: #f8fafc; padding: 30px 40px; text-align: center; border-top: 1px solid #e2e8f0;">
                                 <p style="color: #94a3b8; margin: 0; font-size: 13px; line-height: 1.5;">
