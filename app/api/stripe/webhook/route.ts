@@ -3,7 +3,12 @@ import { createServiceRoleClient } from '@/lib/supabase/service-role'
 import { NextRequest, NextResponse } from 'next/server'
 import Stripe from 'stripe'
 import { sendCustomEmail } from '@/lib/email/sender'
-import { getSubscriptionConfirmationTemplate, getWelcomeSubscriptionTemplate } from '@/lib/email/templates'
+import { 
+    getSubscriptionConfirmationTemplate, 
+    getWelcomeSubscriptionTemplate,
+    getRenewalConfirmationTemplate,
+    getPaymentFailedTemplate
+} from '@/lib/email/templates'
 import { getPlanInfo, mapPriceIdToPlanType } from '@/lib/subscription/get-plan-info'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
@@ -29,13 +34,24 @@ export async function POST(request: NextRequest) {
                 await handleCheckoutSessionCompleted(event.data.object as Stripe.Checkout.Session, supabase)
                 break
 
-                case 'customer.subscription.updated':
-                    await handleSubscriptionUpdated(event.data.object as Stripe.Subscription, supabase)
-                    break
+            case 'customer.subscription.updated':
+                await handleSubscriptionUpdated(event.data.object as Stripe.Subscription, supabase)
+                break
 
-                case 'customer.subscription.deleted':
-                    await handleSubscriptionDeleted(event.data.object as Stripe.Subscription, supabase)
-                    break
+            case 'customer.subscription.deleted':
+                await handleSubscriptionDeleted(event.data.object as Stripe.Subscription, supabase)
+                break
+
+            case 'invoice.payment_succeeded':
+                await handleInvoicePaymentSucceeded(event.data.object as Stripe.Invoice, supabase)
+                break
+
+            case 'invoice.payment_failed':
+                await handleInvoicePaymentFailed(event.data.object as Stripe.Invoice, supabase)
+                break
+
+            default:
+                console.log(`⏭️ Evento no manejado: ${event.type}`)
         }
 
         return NextResponse.json({ received: true })
@@ -357,5 +373,195 @@ async function handleSubscriptionDeleted(subscription: Stripe.Subscription, supa
         }
     } catch (error) {
         console.error('❌ Error en handleSubscriptionDeleted:', error)
+    }
+}
+
+async function handleInvoicePaymentSucceeded(invoice: Stripe.Invoice, supabase: any) {
+    try {
+        // Solo procesar si es una renovación de suscripción
+        const invoiceData = invoice as any
+        if (!invoiceData.subscription) {
+            console.log('⏭️ Invoice sin suscripción, ignorando')
+            return
+        }
+
+        console.log('💰 Procesando pago exitoso de invoice:', invoice.id)
+
+        // Obtener la suscripción completa
+        const subscription = await stripe.subscriptions.retrieve(invoiceData.subscription as string)
+        const subscriptionData = subscription as any
+
+        // Actualizar las fechas en la BD
+        const periodStart = new Date(subscriptionData.current_period_start * 1000)
+        const periodEnd = new Date(subscriptionData.current_period_end * 1000)
+
+        const priceId = subscription.items.data[0].price.id
+        const planType = mapPriceIdToPlanType(priceId)
+
+        const { data: updatedSub, error: updateError } = await supabase
+            .from('suscripciones')
+            .update({
+                current_period_start: periodStart.toISOString(),
+                current_period_end: periodEnd.toISOString(),
+                status: subscriptionData.status,
+                plan_type: planType,
+                updated_at: new Date().toISOString()
+            })
+            .eq('stripe_subscription_id', subscriptionData.id)
+            .select('restaurante_id')
+            .maybeSingle()
+
+        if (updateError) {
+            console.error('❌ Error actualizando suscripción después del pago:', updateError)
+            return
+        }
+
+        if (!updatedSub) {
+            console.warn('⚠️ No se encontró suscripción para actualizar')
+            return
+        }
+
+        console.log('✅ Suscripción renovada exitosamente:', {
+            subscription_id: subscriptionData.id,
+            restaurante_id: updatedSub.restaurante_id,
+            new_period_end: periodEnd.toISOString()
+        })
+
+        // Obtener información del usuario para enviar email
+        const { data: restaurante } = await supabase
+            .from('restaurantes')
+            .select('id')
+            .eq('id', updatedSub.restaurante_id)
+            .single()
+
+        if (restaurante) {
+            const { data: userProfile } = await supabase
+                .from('user_profiles')
+                .select('email, nombre')
+                .eq('restaurante_id', restaurante.id)
+                .eq('role', 'admin')
+                .maybeSingle()
+
+            if (userProfile?.email) {
+                // Obtener información del plan
+                const planInfo = await getPlanInfo(planType)
+
+                if (planInfo) {
+                    const nextRenewalDate = periodEnd.toLocaleDateString('es-ES', {
+                        year: 'numeric',
+                        month: 'long',
+                        day: 'numeric',
+                    })
+
+                    try {
+                        const renewalTemplate = getRenewalConfirmationTemplate({
+                            userName: userProfile.nombre || 'Usuario',
+                            planName: planInfo.nombre_display,
+                            amount: planInfo.precio.toString(),
+                            nextRenewalDate,
+                            dashboardUrl: `${process.env.NEXT_PUBLIC_SITE_URL}/dashboard`,
+                        })
+
+                        await sendCustomEmail(userProfile.email, renewalTemplate)
+
+                        console.log('✅ Email de renovación enviado a:', userProfile.email)
+                    } catch (emailError) {
+                        console.error('❌ Error al enviar email de renovación:', emailError)
+                    }
+                }
+            }
+        }
+
+    } catch (error) {
+        console.error('❌ Error en handleInvoicePaymentSucceeded:', error)
+    }
+}
+
+async function handleInvoicePaymentFailed(invoice: Stripe.Invoice, supabase: any) {
+    try {
+        const invoiceData = invoice as any
+        if (!invoiceData.subscription) {
+            console.log('⏭️ Invoice sin suscripción, ignorando')
+            return
+        }
+
+        console.log('⚠️ Pago fallido de invoice:', invoice.id)
+
+        // Obtener la suscripción
+        const subscription = await stripe.subscriptions.retrieve(invoiceData.subscription as string)
+        const subscriptionData = subscription as any
+
+        const priceId = subscription.items.data[0].price.id
+        const planType = mapPriceIdToPlanType(priceId)
+
+        // Actualizar estado en BD
+        const { data: updatedSub, error: updateError } = await supabase
+            .from('suscripciones')
+            .update({
+                status: subscriptionData.status, // Puede ser 'past_due' o 'unpaid'
+                updated_at: new Date().toISOString()
+            })
+            .eq('stripe_subscription_id', subscriptionData.id)
+            .select('restaurante_id')
+            .maybeSingle()
+
+        if (updateError) {
+            console.error('❌ Error actualizando estado después de pago fallido:', updateError)
+            return
+        }
+
+        if (!updatedSub) {
+            console.warn('⚠️ No se encontró suscripción para actualizar')
+            return
+        }
+
+        console.log('⚠️ Suscripción marcada como pago fallido:', {
+            subscription_id: subscriptionData.id,
+            restaurante_id: updatedSub.restaurante_id,
+            status: subscriptionData.status,
+            attempt: invoice.attempt_count
+        })
+
+        // Obtener información del usuario para enviar email
+        const { data: restaurante } = await supabase
+            .from('restaurantes')
+            .select('id')
+            .eq('id', updatedSub.restaurante_id)
+            .single()
+
+        if (restaurante) {
+            const { data: userProfile } = await supabase
+                .from('user_profiles')
+                .select('email, nombre')
+                .eq('restaurante_id', restaurante.id)
+                .eq('role', 'admin')
+                .maybeSingle()
+
+            if (userProfile?.email) {
+                // Obtener información del plan
+                const planInfo = await getPlanInfo(planType)
+
+                if (planInfo) {
+                    try {
+                        const paymentFailedTemplate = getPaymentFailedTemplate({
+                            userName: userProfile.nombre || 'Usuario',
+                            planName: planInfo.nombre_display,
+                            amount: planInfo.precio.toString(),
+                            attemptNumber: invoice.attempt_count || 1,
+                            updatePaymentUrl: `${process.env.NEXT_PUBLIC_SITE_URL}/dashboard/planes`,
+                        })
+
+                        await sendCustomEmail(userProfile.email, paymentFailedTemplate)
+
+                        console.log('✅ Email de pago fallido enviado a:', userProfile.email)
+                    } catch (emailError) {
+                        console.error('❌ Error al enviar email de pago fallido:', emailError)
+                    }
+                }
+            }
+        }
+
+    } catch (error) {
+        console.error('❌ Error en handleInvoicePaymentFailed:', error)
     }
 }

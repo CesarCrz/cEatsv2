@@ -389,7 +389,7 @@ export function getSubscriptionConfirmationTemplate(
                         <tr>
                             <td style="padding: 40px 40px 20px 40px; text-align: center;">
                                 <div style="width: 80px; height: 80px; background: linear-gradient(135deg, #10b981 0%, #059669 100%); border-radius: 50%; margin: 0 auto; display: flex; align-items: center; justify-content: center;">
-                                    <span style="color: #ffffff; font-size: 40px; line-height: 80px;">✓</span>
+                                    <span style="color: #ffffff; font-size: 40px; line-height: 80px; padding: 50%;">✓</span>
                                 </div>
                             </td>
                         </tr>
@@ -662,3 +662,293 @@ export function getWelcomeSubscriptionTemplate(userName: string, planName: strin
     `,
   }
 }
+
+// Template para confirmación de renovación
+export function getRenewalConfirmationTemplate(params: {
+    userName: string
+    planName: string
+    amount: string
+    nextRenewalDate: string
+    dashboardUrl: string
+}): EmailTemplate {
+    const { userName, planName, amount, nextRenewalDate, dashboardUrl } = params
+
+    return {
+    subject: `Renovación Confirmada - Plan ${planName}`,
+    html: `
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Renovación Confirmada - cEats</title>
+</head>
+<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f3f4f6;">
+    <table role="presentation" style="width: 100%; border-collapse: collapse; background-color: #f3f4f6;">
+    <tr>
+        <td align="center" style="padding: 40px 20px;">
+        <table role="presentation" style="max-width: 600px; width: 100%; border-collapse: collapse; background-color: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);">
+            
+            <!-- Header con gradiente azul -->
+            <tr>
+            <td style="background: linear-gradient(135deg, #2563eb 0%, #1e40af 100%); padding: 48px 40px; text-align: center;">
+                <div style="background-color: #10b981; width: 80px; height: 80px; border-radius: 50%; margin: 0 auto 24px; display: flex; align-items: center; justify-content: center;">
+                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M20 6L9 17L4 12" stroke="#ffffff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+                </div>
+                <h1 style="margin: 0; color: #ffffff; font-size: 28px; font-weight: 700; letter-spacing: -0.5px;">
+                ¡Renovación Exitosa!
+                </h1>
+            </td>
+            </tr>
+
+            <!-- Contenido principal -->
+            <tr>
+            <td style="padding: 48px 40px;">
+                <p style="margin: 0 0 24px; color: #111827; font-size: 16px; line-height: 1.6;">
+                Hola <strong>${userName}</strong>,
+                </p>
+                
+                <p style="margin: 0 0 24px; color: #374151; font-size: 16px; line-height: 1.6;">
+                Tu suscripción al plan <strong>${planName}</strong> ha sido renovada exitosamente.
+                </p>
+
+                <!-- Mensaje de agradecimiento -->
+                <div style="background-color: #f0fdf4; border-left: 4px solid #10b981; padding: 20px; margin: 32px 0; border-radius: 8px;">
+                <p style="margin: 0; color: #065f46; font-size: 15px; line-height: 1.6; font-weight: 500;">
+                    💚 Gracias por confiar en cEats. Estamos comprometidos en ayudarte a gestionar tu negocio de la mejor manera posible.
+                </p>
+                </div>
+
+                <!-- Detalles de la renovación -->
+                <div style="background-color: #f9fafb; border-radius: 12px; padding: 24px; margin: 32px 0;">
+                <h2 style="margin: 0 0 20px; color: #111827; font-size: 18px; font-weight: 600;">
+                    Detalles de tu renovación
+                </h2>
+                
+                <table role="presentation" style="width: 100%; border-collapse: collapse;">
+                    <tr>
+                    <td style="padding: 12px 0; border-bottom: 1px solid #e5e7eb;">
+                        <span style="color: #6b7280; font-size: 14px;">Plan</span>
+                    </td>
+                    <td style="padding: 12px 0; border-bottom: 1px solid #e5e7eb; text-align: right;">
+                        <span style="color: #111827; font-size: 14px; font-weight: 600;">${planName}</span>
+                    </td>
+                    </tr>
+                    <tr>
+                    <td style="padding: 12px 0; border-bottom: 1px solid #e5e7eb;">
+                        <span style="color: #6b7280; font-size: 14px;">Monto cobrado</span>
+                    </td>
+                    <td style="padding: 12px 0; border-bottom: 1px solid #e5e7eb; text-align: right;">
+                        <span style="color: #111827; font-size: 14px; font-weight: 600;">$${amount} MXN</span>
+                    </td>
+                    </tr>
+                    <tr>
+                    <td style="padding: 12px 0;">
+                        <span style="color: #6b7280; font-size: 14px;">Próxima renovación</span>
+                    </td>
+                    <td style="padding: 12px 0; text-align: right;">
+                        <span style="color: #111827; font-size: 14px; font-weight: 600;">${nextRenewalDate}</span>
+                    </td>
+                    </tr>
+                </table>
+                </div>
+
+                <!-- CTA Button -->
+                <table role="presentation" style="width: 100%; margin: 32px 0;">
+                <tr>
+                    <td align="center">
+                    <a href="${dashboardUrl}" style="display: inline-block; background: linear-gradient(135deg, #2563eb 0%, #1e40af 100%); color: #ffffff; text-decoration: none; padding: 16px 32px; border-radius: 8px; font-weight: 600; font-size: 16px; box-shadow: 0 4px 6px rgba(37, 99, 235, 0.2);">
+                        Ir a mi Dashboard
+                    </a>
+                    </td>
+                </tr>
+                </table>
+
+                <p style="margin: 32px 0 0; color: #6b7280; font-size: 14px; line-height: 1.6;">
+                Si tienes alguna pregunta o necesitas ayuda, no dudes en contactarnos en 
+                <a href="mailto:support@ceats.app" style="color: #2563eb; text-decoration: none;">support@ceats.app</a>
+                </p>
+            </td>
+            </tr>
+
+            <!-- Footer -->
+            <tr>
+            <td style="background-color: #f9fafb; padding: 32px 40px; border-top: 1px solid #e5e7eb;">
+                <table role="presentation" style="width: 100%;">
+                <tr>
+                    <td align="center">
+                    <p style="margin: 0 0 16px; color: #6b7280; font-size: 14px;">
+                        © 2025 cEats v2. Todos los derechos reservados.
+                    </p>
+                    <p style="margin: 0; color: #9ca3af; font-size: 12px;">
+                        <a href="https://ceats.app/privacidad" style="color: #6b7280; text-decoration: none; margin: 0 8px;">Privacidad</a>
+                        <span style="color: #d1d5db;">•</span>
+                        <a href="https://ceats.app/terminos" style="color: #6b7280; text-decoration: none; margin: 0 8px;">Términos</a>
+                        <span style="color: #d1d5db;">•</span>
+                        <a href="https://ceats.app/contacto" style="color: #6b7280; text-decoration: none; margin: 0 8px;">Soporte</a>
+                    </p>
+                    </td>
+                </tr>
+                </table>
+            </td>
+            </tr>
+
+        </table>
+        </td>
+    </tr>
+    </table>
+</body>
+</html>
+    `,
+    }
+}
+
+// Template para pago fallido
+export function getPaymentFailedTemplate(params: {
+    userName: string
+    planName: string
+    amount: string
+    attemptNumber: number
+    updatePaymentUrl: string
+}): EmailTemplate {
+    const { userName, planName, amount, attemptNumber, updatePaymentUrl } = params
+
+    return {
+    subject: `⚠️ Problema con tu Pago - Plan ${planName}`,
+    html: `
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Problema con el Pago - cEats</title>
+</head>
+<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f3f4f6;">
+    <table role="presentation" style="width: 100%; border-collapse: collapse; background-color: #f3f4f6;">
+    <tr>
+        <td align="center" style="padding: 40px 20px;">
+        <table role="presentation" style="max-width: 600px; width: 100%; border-collapse: collapse; background-color: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);">
+            
+            <!-- Header con gradiente rojo -->
+            <tr>
+            <td style="background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); padding: 48px 40px; text-align: center;">
+                <div style="background-color: rgba(255, 255, 255, 0.2); width: 80px; height: 80px; border-radius: 50%; margin: 0 auto 24px; display: flex; align-items: center; justify-content: center;">
+                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M12 9V13M12 17H12.01M21 12C21 16.9706 16.9706 21 12 21C7.02944 21 3 16.9706 3 12C3 7.02944 7.02944 3 12 3C16.9706 3 21 7.02944 21 12Z" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+                </div>
+                <h1 style="margin: 0; color: #ffffff; font-size: 28px; font-weight: 700; letter-spacing: -0.5px;">
+                Problema con tu Pago
+                </h1>
+            </td>
+            </tr>
+
+            <!-- Contenido principal -->
+            <tr>
+            <td style="padding: 48px 40px;">
+                <p style="margin: 0 0 24px; color: #111827; font-size: 16px; line-height: 1.6;">
+                Hola <strong>${userName}</strong>,
+                </p>
+                
+                <p style="margin: 0 0 24px; color: #374151; font-size: 16px; line-height: 1.6;">
+                No pudimos procesar el pago de tu suscripción al plan <strong>${planName}</strong>.
+                </p>
+
+                <!-- Alerta de intento -->
+                <div style="background-color: #fef2f2; border-left: 4px solid #ef4444; padding: 20px; margin: 32px 0; border-radius: 8px;">
+                <p style="margin: 0; color: #991b1b; font-size: 15px; line-height: 1.6; font-weight: 500;">
+                    ⚠️ Este es el intento <strong>${attemptNumber} de 4</strong>. Por favor actualiza tu método de pago para evitar la suspensión de tu servicio.
+                </p>
+                </div>
+
+                <!-- Detalles del pago -->
+                <div style="background-color: #f9fafb; border-radius: 12px; padding: 24px; margin: 32px 0;">
+                <h2 style="margin: 0 0 20px; color: #111827; font-size: 18px; font-weight: 600;">
+                    Detalles del pago
+                </h2>
+                
+                <table role="presentation" style="width: 100%; border-collapse: collapse;">
+                    <tr>
+                    <td style="padding: 12px 0; border-bottom: 1px solid #e5e7eb;">
+                        <span style="color: #6b7280; font-size: 14px;">Plan</span>
+                    </td>
+                    <td style="padding: 12px 0; border-bottom: 1px solid #e5e7eb; text-align: right;">
+                        <span style="color: #111827; font-size: 14px; font-weight: 600;">${planName}</span>
+                    </td>
+                    </tr>
+                    <tr>
+                    <td style="padding: 12px 0;">
+                        <span style="color: #6b7280; font-size: 14px;">Monto</span>
+                    </td>
+                    <td style="padding: 12px 0; text-align: right;">
+                        <span style="color: #111827; font-size: 14px; font-weight: 600;">$${amount} MXN</span>
+                    </td>
+                    </tr>
+                </table>
+                </div>
+
+                <!-- Razones comunes -->
+                <div style="margin: 32px 0;">
+                <h3 style="margin: 0 0 16px; color: #111827; font-size: 16px; font-weight: 600;">
+                    Razones comunes del problema:
+                </h3>
+                <ul style="margin: 0; padding-left: 20px; color: #6b7280; font-size: 14px; line-height: 1.8;">
+                    <li>Fondos insuficientes en la cuenta</li>
+                    <li>Tarjeta vencida o bloqueada</li>
+                    <li>Límite de crédito alcanzado</li>
+                    <li>Datos de facturación incorrectos</li>
+                </ul>
+                </div>
+
+                <!-- CTA Button -->
+                <table role="presentation" style="width: 100%; margin: 32px 0;">
+                <tr>
+                    <td align="center">
+                    <a href="${updatePaymentUrl}" style="display: inline-block; background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); color: #ffffff; text-decoration: none; padding: 16px 32px; border-radius: 8px; font-weight: 600; font-size: 16px; box-shadow: 0 4px 6px rgba(239, 68, 68, 0.2);">
+                        Actualizar Método de Pago
+                    </a>
+                    </td>
+                </tr>
+                </table>
+
+                <p style="margin: 32px 0 0; color: #6b7280; font-size: 14px; line-height: 1.6;">
+                Si necesitas ayuda o tienes preguntas, contáctanos en 
+                <a href="mailto:support@ceats.app" style="color: #2563eb; text-decoration: none;">support@ceats.app</a>
+                </p>
+            </td>
+            </tr>
+
+            <!-- Footer -->
+            <tr>
+            <td style="background-color: #f9fafb; padding: 32px 40px; border-top: 1px solid #e5e7eb;">
+                <table role="presentation" style="width: 100%;">
+                <tr>
+                    <td align="center">
+                    <p style="margin: 0 0 16px; color: #6b7280; font-size: 14px;">
+                        © 2025 cEats v2. Todos los derechos reservados.
+                    </p>
+                    <p style="margin: 0; color: #9ca3af; font-size: 12px;">
+                        <a href="https://ceats.app/privacidad" style="color: #6b7280; text-decoration: none; margin: 0 8px;">Privacidad</a>
+                        <span style="color: #d1d5db;">•</span>
+                        <a href="https://ceats.app/terminos" style="color: #6b7280; text-decoration: none; margin: 0 8px;">Términos</a>
+                        <span style="color: #d1d5db;">•</span>
+                        <a href="https://ceats.app/contacto" style="color: #6b7280; text-decoration: none; margin: 0 8px;">Soporte</a>
+                    </p>
+                    </td>
+                </tr>
+                </table>
+            </td>
+            </tr>
+
+        </table>
+        </td>
+    </tr>
+    </table>
+</body>
+</html>
+    `,
+    }
+}
+
