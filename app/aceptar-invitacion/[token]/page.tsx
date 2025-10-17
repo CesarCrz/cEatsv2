@@ -12,19 +12,17 @@ import { CheckCircle, XCircle, Clock, Loader2 } from 'lucide-react'
 
 interface InvitationData {
   id: string
-  token: string
+  token_invitacion: string
   restaurante_id: string
-  email_contacto: string
+  email_sucursal: string
   nombre_sucursal: string
   direccion: string
-  telefono_contacto: string | null
+  telefono: string | null
   ciudad: string
   estado: string
   codigo_postal: string | null
-  latitud: number | null
-  longitud: number | null
-  estado_invitacion: string
-  expira_en: string
+  usado: boolean
+  fecha_expiracion: string
   created_at: string
   restaurante?: {
     nombre: string
@@ -62,7 +60,7 @@ export default function AceptarInvitacionPage() {
           *,
           restaurante:restaurantes(nombre)
         `)
-        .eq('token', token)
+        .eq('token_invitacion', token)
         .single()
 
       if (error || !invitationData) {
@@ -71,13 +69,13 @@ export default function AceptarInvitacionPage() {
       }
 
       // Verificar si ya fue usada
-      if (invitationData.estado_invitacion === 'aceptada') {
+      if (invitationData.usado === true) {
         setPageState('used')
         return
       }
 
       // Verificar si expiró
-      const expirationDate = new Date(invitationData.expira_en)
+      const expirationDate = new Date(invitationData.fecha_expiracion)
       const now = new Date()
       
       if (now > expirationDate) {
@@ -119,7 +117,7 @@ export default function AceptarInvitacionPage() {
     try {
       // 1. Crear usuario en Supabase Auth
       const { data: authData, error: authError } = await supabase.auth.signUp({
-        email: invitation.email_contacto,
+        email: invitation.email_sucursal,
         password: password,
         options: {
           emailRedirectTo: undefined // No enviar email de confirmación
@@ -147,13 +145,11 @@ export default function AceptarInvitacionPage() {
           restaurante_id: invitation.restaurante_id,
           nombre_sucursal: invitation.nombre_sucursal,
           direccion: invitation.direccion,
-          telefono_contacto: invitation.telefono_contacto,
-          email_contacto_sucursal: invitation.email_contacto,
+          telefono_contacto: invitation.telefono,
+          email_contacto_sucursal: invitation.email_sucursal,
           ciudad: invitation.ciudad,
           estado: invitation.estado,
           codigo_postal: invitation.codigo_postal,
-          latitud: invitation.latitud,
-          longitud: invitation.longitud,
           is_verified: true, // Auto-verificada por invitación
           is_active: true,
           created_at: new Date().toISOString(),
@@ -163,7 +159,8 @@ export default function AceptarInvitacionPage() {
         .single()
 
       if (sucursalError) {
-        setErrors(['Error al crear la sucursal'])
+        console.error('Error al crear sucursal:', sucursalError)
+        setErrors(['Error al crear la sucursal: ' + sucursalError.message])
         return
       }
 
@@ -172,7 +169,7 @@ export default function AceptarInvitacionPage() {
         .from('user_profiles')
         .insert({
           id: authData.user.id,
-          email: invitation.email_contacto,
+          email: invitation.email_sucursal,
           nombre: `Sucursal ${invitation.nombre_sucursal}`,
           restaurante_id: invitation.restaurante_id,
           sucursal_id: sucursal.id,
@@ -185,22 +182,22 @@ export default function AceptarInvitacionPage() {
         })
 
       if (profileError) {
-        setErrors(['Error al crear el perfil'])
+        console.error('Error al crear perfil:', profileError)
+        setErrors(['Error al crear el perfil: ' + profileError.message])
         return
       }
 
-      // 4. Marcar invitación como aceptada
+      // 4. Marcar invitación como usada
       await supabase
         .from('invitaciones_sucursales')
         .update({
-          estado_invitacion: 'aceptada',
-          aceptada_en: new Date().toISOString()
+          usado: true
         })
-        .eq('token', token)
+        .eq('token_invitacion', token)
 
       // 5. Iniciar sesión automáticamente
       const { error: signInError } = await supabase.auth.signInWithPassword({
-        email: invitation.email_contacto,
+        email: invitation.email_sucursal,
         password: password
       })
 
@@ -209,7 +206,7 @@ export default function AceptarInvitacionPage() {
         router.push('/login?message=Cuenta creada exitosamente. Inicia sesión.')
       } else {
         // Redirigir al dashboard de sucursal
-        router.push('/dashboard?welcome=true')
+        router.push(`/dashboard/sucursales/${sucursal.id}`)
       }
 
     } catch (error) {
@@ -304,7 +301,7 @@ export default function AceptarInvitacionPage() {
                 <p><strong>Nombre:</strong> {invitation?.nombre_sucursal}</p>
                 <p><strong>Dirección:</strong> {invitation?.direccion}</p>
                 <p><strong>Ciudad:</strong> {invitation?.ciudad}, {invitation?.estado}</p>
-                <p><strong>Email:</strong> {invitation?.email_contacto}</p>
+                <p><strong>Email:</strong> {invitation?.email_sucursal}</p>
               </div>
 
               {/* Errores */}

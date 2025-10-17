@@ -17,6 +17,7 @@ import { useNotifications } from '@/hooks/use-notifications'
 interface InvitationModalProps {
   isOpen: boolean
   onClose: () => void
+  restauranteId: string
   onSuccess?: () => void
 }
 
@@ -28,8 +29,6 @@ interface FormData {
   estado: string
   codigo_postal: string
   telefono_contacto: string
-  latitud: string
-  longitud: string
 }
 
 const ESTADOS_MEXICO = [
@@ -40,7 +39,7 @@ const ESTADOS_MEXICO = [
   'Sinaloa', 'Sonora', 'Tabasco', 'Tamaulipas', 'Tlaxcala', 'Veracruz', 'Yucatán', 'Zacatecas'
 ]
 
-export function InvitationModal({ isOpen, onClose, onSuccess }: InvitationModalProps) {
+export function InvitationModal({ isOpen, onClose, restauranteId, onSuccess }: InvitationModalProps) {
   const { profile } = useAuth()
   const { canCreateSucursal, getRemainingQuota } = useSubscription()
   const { showSuccess, showError, showValidationErrors, handleApiResponse } = useNotifications()
@@ -56,9 +55,7 @@ export function InvitationModal({ isOpen, onClose, onSuccess }: InvitationModalP
     ciudad: '',
     estado: '',
     codigo_postal: '',
-    telefono_contacto: '',
-    latitud: '',
-    longitud: ''
+    telefono_contacto: ''
   })
 
   const supabase = createClient()
@@ -110,14 +107,11 @@ export function InvitationModal({ isOpen, onClose, onSuccess }: InvitationModalP
 
     try {
       const payload = {
-        restaurante_id: profile?.restaurante_id,
-        ...formData,
-        // Convertir coordenadas a números si existen
-        latitud: formData.latitud ? parseFloat(formData.latitud) : null,
-        longitud: formData.longitud ? parseFloat(formData.longitud) : null
+        restaurante_id: restauranteId,
+        ...formData
       }
 
-      const response = await fetch('/api/invitar-sucursal', {
+      const response = await fetch('/api/sucursales/invite', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -142,9 +136,7 @@ export function InvitationModal({ isOpen, onClose, onSuccess }: InvitationModalP
         ciudad: '',
         estado: '',
         codigo_postal: '',
-        telefono_contacto: '',
-        latitud: '',
-        longitud: ''
+        telefono_contacto: ''
       })
 
       // Cerrar modal después de un momento
@@ -170,9 +162,7 @@ export function InvitationModal({ isOpen, onClose, onSuccess }: InvitationModalP
         ciudad: '',
         estado: '',
         codigo_postal: '',
-        telefono_contacto: '',
-        latitud: '',
-        longitud: ''
+        telefono_contacto: ''
       })
       onClose()
     }
@@ -294,41 +284,6 @@ export function InvitationModal({ isOpen, onClose, onSuccess }: InvitationModalP
                   value={formData.codigo_postal}
                   onChange={(e) => handleInputChange('codigo_postal', e.target.value)}
                   placeholder="12345"
-                  disabled={isLoading}
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Coordenadas (opcionales) */}
-          <div className="space-y-4">
-            <div className="text-sm font-medium text-muted-foreground">
-              Coordenadas (Opcional)
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="latitud">Latitud</Label>
-                <Input
-                  id="latitud"
-                  type="number"
-                  step="any"
-                  value={formData.latitud}
-                  onChange={(e) => handleInputChange('latitud', e.target.value)}
-                  placeholder="19.4326"
-                  disabled={isLoading}
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="longitud">Longitud</Label>
-                <Input
-                  id="longitud"
-                  type="number"
-                  step="any"
-                  value={formData.longitud}
-                  onChange={(e) => handleInputChange('longitud', e.target.value)}
-                  placeholder="-99.1332"
                   disabled={isLoading}
                 />
               </div>

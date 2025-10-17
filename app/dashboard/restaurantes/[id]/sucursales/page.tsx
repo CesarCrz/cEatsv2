@@ -10,6 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
+import { InvitationModal } from '@/components/invitation-modal'
 import { Plus, Search, MapPin, Phone, Mail, Users, Settings, ArrowLeft } from 'lucide-react'
 import Link from 'next/link'
 
@@ -42,6 +43,7 @@ export default function SucursalesPage() {
   const [searchTerm, setSearchTerm] = useState("")
   const [sucursales, setSucursales] = useState<Sucursal[]>([])
   const [loading, setLoading] = useState(false)
+  const [isInvitationModalOpen, setIsInvitationModalOpen] = useState(false)
   
   const { canCreateSucursal } = useSubscription()
   const { showSuccess, showError, handleApiResponse } = useNotifications()
@@ -121,13 +123,18 @@ export default function SucursalesPage() {
 
   const handleCrearSucursal = () => {
     if (canCreateSucursal()) {
-      router.push(`/dashboard/restaurantes/${restauranteId}/sucursales`)
+      setIsInvitationModalOpen(true)
     } else {
       showError({ 
         title: "Límite alcanzado",
         description: "Has alcanzado el límite de sucursales de tu plan. Actualiza tu suscripción para crear más." 
       })
     }
+  }
+
+  const handleInvitationSuccess = () => {
+    setIsInvitationModalOpen(false)
+    cargarSucursales()
   }
 
   if (loading) {
@@ -283,6 +290,14 @@ export default function SucursalesPage() {
           </div>
         )}
       </div>
+
+      {/* Modal de Invitación */}
+      <InvitationModal
+        isOpen={isInvitationModalOpen}
+        onClose={() => setIsInvitationModalOpen(false)}
+        restauranteId={restauranteId}
+        onSuccess={handleInvitationSuccess}
+      />
     </div>
   )
 }
