@@ -122,7 +122,26 @@ export function InvitationModal({ isOpen, onClose, restauranteId, onSuccess }: I
       const result = await response.json()
 
       if (!response.ok) {
-        showError(result.error || 'Error al enviar la invitación')
+        // Mostrar error principal
+        const errorMessage = result.error || 'Error al enviar la invitación'
+        
+        // Si hay detalles adicionales, mostrarlos también
+        if (result.details) {
+          showError({ 
+            title: errorMessage,
+            description: result.details
+          })
+        } else if (result.diasRestantes) {
+          showError({ 
+            title: errorMessage,
+            description: `Días restantes para que expire: ${result.diasRestantes}`
+          })
+        } else {
+          showError({ 
+            title: "Error al invitar",
+            description: errorMessage
+          })
+        }
         return
       }
 

@@ -3613,3 +3613,446 @@ SET DEFAULT (now() + '3 days'::interval);
 
 ---
 
+_**User (2025-10-17 17:52Z)**_
+
+a lo que yo me refería de donde quería que el usuario viera el error que el correo ya tiene una cuenta creada en el sistema y que ese correo no se podía utilizar o que el coreo ya tenia una invitación pendiente era en: /restaurantes/[id]/sucursales no en otro lado, es para que el administrador viera ese error, ya que lo intenté y unicamente da el mensaje "Error" pero no muestra nada de especificaciones ni un por qué.
+
+Y también otra cosa que noté es que igualmente en (/restaurantes/[id]/sucursales) no aparecen las sucursales que están como "pendientes" no sale la sucursal pendiente por aceptar como te lo había pedido anteriormente.
+
+revisa esto por favor!!!
+
+Los errores que debes mostrar son los mismos errores que el endpoint: #file:invite  ya te está retornando
+
+---
+
+_**Assistant (copilot/claude-sonnet-4.5)**_
+
+¡Tienes razón! El `InvitationModal` no está mostrando los errores correctamente y tampoco estamos mostrando las invitaciones pendientes. Vamos a corregir ambos problemas:
+
+---
+
+## 🔧 CORRECCIONES NECESARIAS
+
+### **1️⃣ Actualizar InvitationModal para mostrar errores detallados** 
+```
+
+```
+### **2️⃣ Agregar carga de invitaciones pendientes en el dashboard** 
+```
+
+```
+
+```
+
+```
+
+```
+
+```
+Ahora voy a actualizar la sección de renderizado para mostrar las invitaciones pendientes con un badge distintivo: 
+```
+
+```
+Perfecto, ahora voy a verificar que no haya errores: Excelente. He completado la implementación para mostrar las invitaciones pendientes. Ahora las invitaciones pendientes aparecerán en el dashboard con:
+
+✅ **Sección separada** "Invitaciones Pendientes" arriba de las sucursales activas
+✅ **Badge amarillo** que indica el estado "Pendiente" 
+✅ **Información completa**: nombre, email, dirección, teléfono
+✅ **Días restantes** de expiración calculados dinámicamente
+✅ **Botón "Reenviar"** para futuras funcionalidades
+✅ **Borde amarillo** en la tarjeta para distinguirlas visualmente
+
+Los cambios incluyen:
+
+1. **Función `cargarSucursales()`** ahora también carga invitaciones pendientes de la tabla `invitaciones_sucursales` donde:
+   - `usado = false`
+   - `fecha_expiracion > fecha_actual`
+   - `restaurante_id` coincide
+
+2. **UI actualizada** para mostrar:
+   - Las invitaciones pendientes en su propia sección con badges distintivos
+   - Cálculo dinámico de días restantes
+   - Mensaje cuando no hay sucursales ni invitaciones
+   - Separación clara entre "Invitaciones Pendientes" y "Sucursales Activas"
+
+Ahora cuando envíes una invitación, aparecerá inmediatamente en el dashboard con el estado "Pendiente" hasta que la persona acepte la invitación. ¿Te gustaría que también implemente la funcionalidad de "Reenviar" invitación?
+
+---
+
+_**User (2025-10-17 17:55Z)**_
+
+estaría muy bueno, lo de reenviar invitación también!!
+
+---
+
+_**Assistant (copilot/claude-sonnet-4.5)**_
+
+Perfecto, voy a implementar la funcionalidad de reenviar invitación. Primero necesito crear el endpoint de API para reenviar invitaciones: Déjame revisar los imports correctos: Ahora voy a corregir el archivo con los imports y sintaxis correctos: 
+```
+
+```
+
+
+---
+
+_**User (2025-10-17 17:57Z)**_
+
+para reenviar PREGUNTO unicamente, no bastaría con solo mostrar al usaurio que la fecha expiro y que si desea reenviar la invitación??
+y en el boton de reenviar, que se haga el llamado del endpoint #file:invite y ya??
+
+---
+
+_**Assistant (copilot/claude-sonnet-4.5)**_
+
+¡Tienes toda la razón! Es mucho más simple y eficiente. Solo necesitamos:
+
+1. **Mostrar las invitaciones expiradas también** (no solo las pendientes)
+2. **Reutilizar el endpoint existente** `/api/sucursales/invite` cuando se haga clic en "Reenviar"
+
+Voy a actualizar la página para implementar esto:
+
+````typescript
+'use client'
+
+import { useState, useEffect } from 'react'
+import { useParams, useRouter } from 'next/navigation'
+import { createClient } from '@/lib/supabase/client'
+import { useAuth } from '@/hooks/use-auth'
+import { useNotifications } from '@/hooks/use-notifications'
+import { useSubscription } from '@/hooks/use-subscription'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Badge } from '@/components/ui/badge'
+import { InvitationModal } from '@/components/invitation-modal'
+import { Plus, Search, MapPin, Phone, Mail, Users, Settings, ArrowLeft, Clock, RefreshCw } from 'lucide-react'
+import Link from 'next/link'
+
+interface Sucursal {
+  id: string
+  restaurante_id: string
+  nombre_sucursal: string
+  direccion: string
+  telefono_contacto: string | null
+  email_contacto_sucursal: string
+  ciudad: string
+  estado: string
+  codigo_postal: string | null
+  is_active: boolean
+  is_verified: boolean
+  created_at: string
+  updated_at: string
+  total_usuarios?: number
+  total_pedidos_mes?: number
+}
+
+interface InvitacionPendiente {
+  id: string
+  restaurante_id: string
+  email_sucursal: string
+  nombre_sucursal: string
+  direccion: string
+  telefono: string | null
+  ciudad: string
+  estado: string
+  codigo_postal: string | null
+  token_invitacion: string
+  usado: boolean
+  fecha_expiracion: string
+  created_at: string
+}
+
+export default function SucursalesPage() {
+  const params = useParams()
+  const router = useRouter()
+  const restauranteId = params.id as string
+  const { user } = useAuth()
+  const supabase = createClient()
+  
+  const [searchTerm, setSearchTerm] = useState("")
+  const [sucursales, setSucursales] = useState<Sucursal[]>([])
+  const [invitacionesPendientes, setInvitacionesPendientes] = useState<InvitacionPendiente[]>([])
+  const [loading, setLoading] = useState(false)
+  const [resendiendoId, setResendiendoId] = useState<string | null>(null)
+  const [isInvitationModalOpen, setIsInvitationModalOpen] = useState(false)
+  
+  const { canCreateSucursal } = useSubscription()
+  const { showSuccess, showError } = useNotifications()
+
+  // Cargar sucursales del restaurante
+  const cargarSucursales = async () => {
+    try {
+      setLoading(true)
+      
+      // Cargar sucursales activas
+      const { data: sucursalesData, error } = await supabase
+        .from('sucursales')
+        .select(`
+          id,
+          restaurante_id,
+          nombre_sucursal,
+          direccion,
+          telefono_contacto,
+          email_contacto_sucursal,
+          ciudad,
+          estado,
+          codigo_postal,
+          is_active,
+          is_verified,
+          created_at,
+          updated_at
+        `)
+        .eq('restaurante_id', restauranteId)
+        .order('created_at', { ascending: false })
+
+      if (error) {
+        console.error('Error cargando sucursales:', error)
+        showError({ 
+          title: "Error al cargar sucursales",
+          description: "No se pudieron cargar las sucursales del restaurante." 
+        })
+      } else {
+        setSucursales(sucursalesData || [])
+      }
+
+      // Cargar invitaciones pendientes Y expiradas (no usadas)
+      const { data: invitacionesData, error: invitacionesError } = await supabase
+        .from('invitaciones_sucursales')
+        .select('*')
+        .eq('restaurante_id', restauranteId)
+        .eq('usado', false)
+        .order('created_at', { ascending: false })
+
+      if (invitacionesError) {
+        console.error('Error cargando invitaciones:', invitacionesError)
+      } else {
+        setInvitacionesPendientes(invitacionesData || [])
+      }
+
+    } catch (error) {
+      console.error('Error inesperado:', error)
+      showError({ 
+        title: "Error inesperado",
+        description: "Ocurrió un error al cargar las sucursales." 
+      })
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    if (user && restauranteId) {
+      cargarSucursales()
+    }
+  }, [user, restauranteId])
+
+  // Filtrar sucursales por término de búsqueda
+  const sucursalesFiltradas = sucursales.filter(sucursal =>
+    sucursal.nombre_sucursal.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    sucursal.ciudad.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    sucursal.direccion.toLowerCase().includes(searchTerm.toLowerCase())
+  )
+
+  const handleCrearSucursal = () => {
+    if (canCreateSucursal()) {
+      setIsInvitationModalOpen(true)
+    } else {
+      showError({ 
+        title: "Límite alcanzado",
+        description: "Has alcanzado el límite de sucursales de tu plan. Actualiza tu suscripción para crear más." 
+      })
+    }
+  }
+
+  const handleInvitationSuccess = () => {
+    setIsInvitationModalOpen(false)
+    cargarSucursales()
+  }
+
+  // Reenviar invitación
+  const handleReenviarInvitacion = async (invitacion: InvitacionPendiente) => {
+    try {
+      setResendiendoId(invitacion.id)
+
+      const response = await fetch('/api/sucursales/invite', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          restaurante_id: invitacion.restaurante_id,
+          nombre_sucursal: invitacion.nombre_sucursal,
+          email_contacto_sucursal: invitacion.email_sucursal,
+          direccion: invitacion.direccion,
+          telefono_contacto: invitacion.telefono,
+          ciudad: invitacion.ciudad,
+          estado: invitacion.estado,
+          codigo_postal: invitacion.codigo_postal
+        }),
+      })
+
+      const result = await response.json()
+
+      if (!response.ok) {
+        showError({
+          title: "Error al reenviar invitación",
+          description: result.error || result.details || "No se pudo reenviar la invitación"
+        })
+        return
+      }
+
+      showSuccess({
+        title: "Invitación reenviada",
+        description: `Se ha enviado una nueva invitación a ${invitacion.email_sucursal}`
+      })
+
+      // Recargar invitaciones para ver la nueva
+      cargarSucursales()
+
+    } catch (error) {
+      console.error('Error al reenviar invitación:', error)
+      showError({
+
+---
+
+_**User (2025-10-17 17:58Z)**_
+
+pero a ver antes de implementar como mencionas, realmente esto si es eficiente???
+
+---
+
+_**Assistant (copilot/claude-sonnet-4.5)**_
+
+¡Excelente pregunta! Tienes toda la razón. **NO es eficiente** crear un nuevo endpoint solo para reenviar cuando podemos reutilizar el existente. Déjame analizar:
+
+---
+
+## 🤔 ANÁLISIS DE EFICIENCIA
+
+### **❌ Opción 1: Crear endpoint `/resend-invitation`**
+**Contras:**
+- Duplicación de código
+- Duplicación de lógica de validación
+- Más mantenimiento
+- Más archivos que gestionar
+- Potencialmente inconsistente si uno se actualiza y el otro no
+
+### **✅ Opción 2: Reutilizar endpoint `/invite` existente**
+**Pros:**
+- ✅ **DRY (Don't Repeat Yourself)** - no duplicamos código
+- ✅ Una sola fuente de verdad para la lógica
+- ✅ Todas las validaciones ya están implementadas
+- ✅ Menos código que mantener
+- ✅ Más simple y directo
+
+**Lo único que necesitamos hacer:**
+1. Obtener los datos de la invitación existente
+2. Llamar al endpoint `/invite` con esos datos
+3. Mostrar un mensaje apropiado
+
+---
+
+## 💡 PROPUESTA CORRECTA
+
+**En lugar de crear un nuevo endpoint, simplemente:**
+
+1. Al hacer click en "Reenviar":
+   - Obtener los datos de la invitación
+   - Llamar a `/api/sucursales/invite` con los mismos datos
+   - El backend validará todo de nuevo (email duplicado, invitación pendiente, límites, etc.)
+   - Si ya existe invitación pendiente, el backend retornará error (que es correcto)
+
+2. **Opcionalmente:** Antes de llamar al endpoint, podríamos:
+   - Verificar en frontend si la invitación expiró
+   - Mostrar diálogo de confirmación: "¿Reenviar invitación a {email}?"
+
+---
+
+## ✅ IMPLEMENTACIÓN CORRECTA
+
+Aquí está la implementación **eficiente** sin crear nuevo endpoint:
+
+````typescript
+// ...existing code...
+
+const handleReenviarInvitacion = async (invitacion: InvitacionPendiente) => {
+  try {
+    // Verificar si la invitación está por expirar
+    const fechaExpiracion = new Date(invitacion.fecha_expiracion)
+    const ahora = new Date()
+    
+    if (fechaExpiracion <= ahora) {
+      showError({
+        title: "Invitación expirada",
+        description: "Esta invitación ya expiró. Se creará una nueva invitación."
+      })
+    }
+
+    // Mostrar loading
+    showSuccess({
+      title: "Reenviando invitación...",
+      description: "Por favor espera un momento"
+    })
+
+    // Llamar al mismo endpoint /invite con los datos de la invitación
+    const response = await fetch('/api/sucursales/invite', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        restaurante_id: invitacion.restaurante_id,
+        nombre_sucursal: invitacion.nombre_sucursal,
+        email_contacto_sucursal: invitacion.email_sucursal,
+        direccion: invitacion.direccion,
+        telefono_contacto: invitacion.telefono,
+        ciudad: invitacion.ciudad,
+        estado: invitacion.estado,
+        codigo_postal: invitacion.codigo_postal
+      }),
+    })
+
+    const result = await response.json()
+
+    if (!response.ok) {
+      // Si hay error específico (ej: invitación pendiente aún válida)
+      showError({
+        title: "No se pudo reenviar",
+        description: result.error || "Error al reenviar la invitación"
+      })
+      return
+    }
+
+    showSuccess({
+      title: "Invitación 
+
+---
+
+_**User (2025-10-17 17:58Z)**_
+
+bueno, ahora que ya se sabe que correctamente es lo ideal, implementalo por favor!! 
+
+Hazlo de la manera correcta y que no haya errores por favor!
+Si necesitas algo d einformacion para trabajr esto por favor pidemel
+
+---
+
+_**Assistant (copilot/claude-sonnet-4.5)**_
+
+Perfecto, voy a implementarlo correctamente. Primero déjame revisar el endpoint `/api/sucursales/invite` para entender exactamente qué espera y cómo maneja las invitaciones duplicadas: Perfecto, ahora entiendo bien el endpoint. Veo que:
+
+1. **El endpoint ya valida si hay invitaciones pendientes** en la línea 146-162
+2. **Si hay una invitación pendiente válida, retorna error** con `diasRestantes`
+3. **Cuando se reenvía**, necesitamos manejar este caso específico
+
+Necesito hacer lo siguiente:
+
+1. **Modificar la query** para cargar también invitaciones **expiradas** (no solo pendientes)
+2. **Agregar estado de loading** para el botón de reenviar
+3. **Implementar la función de reenvío** que llame al endpoint existente
+4. **Mostrar badge diferente** si la invitación está expirada
+
+Vamos a implementarlo: 
+
+---
+

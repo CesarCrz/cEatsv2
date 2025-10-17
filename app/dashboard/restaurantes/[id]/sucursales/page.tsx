@@ -33,6 +33,22 @@ interface Sucursal {
   total_pedidos_mes?: number
 }
 
+interface InvitacionPendiente {
+  id: string
+  restaurante_id: string
+  email_sucursal: string
+  nombre_sucursal: string
+  direccion: string
+  telefono: string | null
+  ciudad: string
+  estado: string
+  codigo_postal: string | null
+  token_invitacion: string
+  usado: boolean
+  fecha_expiracion: string
+  created_at: string
+}
+
 export default function SucursalesPage() {
   const params = useParams()
   const router = useRouter()
@@ -42,7 +58,9 @@ export default function SucursalesPage() {
   
   const [searchTerm, setSearchTerm] = useState("")
   const [sucursales, setSucursales] = useState<Sucursal[]>([])
+  const [invitacionesPendientes, setInvitacionesPendientes] = useState<InvitacionPendiente[]>([])
   const [loading, setLoading] = useState(false)
+  const [reenviandoId, setReenviandoId] = useState<string | null>(null)
   const [isInvitationModalOpen, setIsInvitationModalOpen] = useState(false)
   
   const { canCreateSucursal } = useSubscription()
@@ -53,6 +71,7 @@ export default function SucursalesPage() {
     try {
       setLoading(true)
       
+      // Cargar sucursales activas
       const { data: sucursalesData, error } = await supabase
         .from('sucursales')
         .select(`
@@ -79,21 +98,24 @@ export default function SucursalesPage() {
           title: "Error al cargar sucursales",
           description: "No se pudieron cargar las sucursales del restaurante." 
         })
-        return
+      } else {
+        setSucursales(sucursalesData || [])
+        console.log('Sucursales cargadas:', sucursalesData)
       }
 
-      // ✅ Siempre setear las sucursales (array vacío o con datos)
-      setSucursales(sucursalesData || [])
-      console.log('Sucursales cargadas:', sucursalesData)
+      // Cargar invitaciones pendientes Y expiradas (no usadas)
+      const { data: invitacionesData, error: invitacionesError } = await supabase
+        .from('invitaciones_sucursales')
+        .select('*')
+        .eq('restaurante_id', restauranteId)
+        .eq('usado', false)
+        .order('created_at', { ascending: false })
 
-      // ✅ Solo mostrar notificación informativa, NO error
-      if (!sucursalesData || sucursalesData.length === 0) {
-        console.log('No se encontraron sucursales para este restaurante')
-        // Opcional: podrías mostrar un toast informativo, no de error
-        // showSuccess({ 
-        //   title: "Sin sucursales",
-        //   description: "No hay sucursales creadas para este restaurante." 
-        // })
+      if (invitacionesError) {
+        console.error('Error cargando invitaciones:', invitacionesError)
+      } else {
+        setInvitacionesPendientes(invitacionesData || [])
+        console.log('Invitaciones pendientes:', invitacionesData)
       }
 
     } catch (error) {
@@ -103,7 +125,6 @@ export default function SucursalesPage() {
         description: "Ocurrió un error al cargar las sucursales." 
       })
     } finally {
-      // ✅ SIEMPRE terminar loading, haya o no sucursales
       setLoading(false)
     }
   }
@@ -135,6 +156,65 @@ export default function SucursalesPage() {
   const handleInvitationSuccess = () => {
     setIsInvitationModalOpen(false)
     cargarSucursales()
+  }
+
+  // Reenviar invitación reutilizando el endpoint /invite
+  const handleReenviarInvitacion = async (invitacion: InvitacionPendiente) => {
+    try {
+      setReenviandoId(invitacion.id)
+
+      const response = await fetch('/api/sucursales/invite', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          restaurante_id: invitacion.restaurante_id,
+          nombre_sucursal: invitacion.nombre_sucursal,
+          email_contacto_sucursal: invitacion.email_sucursal,
+          direccion: invitacion.direccion,
+          telefono_contacto: invitacion.telefono,
+          ciudad: invitacion.ciudad,
+          estado: invitacion.estado,
+          codigo_postal: invitacion.codigo_postal
+        }),
+      })
+
+      const result = await response.json()
+
+      if (!response.ok) {
+        // Si el error es por invitación pendiente aún válida
+        if (result.diasRestantes) {
+          showError({
+            title: result.error || "No se puede reenviar",
+            description: result.details || `La invitación aún es válida por ${result.diasRestantes} día(s) más.`
+          })
+        } else {
+          showError({
+            title: result.error || "Error al reenviar invitación",
+            description: result.details || "No se pudo reenviar la invitación"
+          })
+        }
+        return
+      }
+
+      showSuccess({
+        title: "Invitación reenviada",
+        description: `Se ha enviado una nueva invitación a ${invitacion.email_sucursal}`
+      })
+
+      // Recargar invitaciones para ver los cambios
+      await cargarSucursales()
+
+    } catch (error) {
+      console.error('Error al reenviar invitación:', error)
+      showError({
+        title: "Error inesperado",
+        description: "Ocurrió un error al reenviar la invitación. Por favor, intenta de nuevo."
+      })
+    } finally {
+      setReenviandoId(null)
+    }
   }
 
   if (loading) {
@@ -195,8 +275,90 @@ export default function SucursalesPage() {
           </CardContent>
         </Card>
 
+        {/* Invitaciones Pendientes */}
+        {invitacionesPendientes.length > 0 && (
+          <div className="mb-6">
+            <h3 className="text-lg font-semibold mb-4">Invitaciones Pendientes</h3>
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {invitacionesPendientes.map((invitacion) => {
+                const fechaExpiracion = new Date(invitacion.fecha_expiracion)
+                const ahora = new Date()
+                const estaExpirada = fechaExpiracion < ahora
+                const diasRestantes = Math.ceil((fechaExpiracion.getTime() - ahora.getTime()) / (1000 * 60 * 60 * 24))
+                const estaReenviando = reenviandoId === invitacion.id
+                
+                return (
+                  <Card key={invitacion.id} className={estaExpirada ? "border-red-200 dark:border-red-800" : "border-yellow-200 dark:border-yellow-800"}>
+                    <CardHeader className="pb-3">
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <CardTitle className="text-lg font-semibold mb-2">
+                            {invitacion.nombre_sucursal}
+                          </CardTitle>
+                          <Badge 
+                            variant="outline" 
+                            className={
+                              estaExpirada 
+                                ? "bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200"
+                                : "bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200"
+                            }
+                          >
+                            {estaExpirada ? "Expirada" : "Pendiente"}
+                          </Badge>
+                        </div>
+                      </div>
+                    </CardHeader>
+                    
+                    <CardContent className="space-y-3">
+                      <div className="flex items-center space-x-2">
+                        <Mail className="h-4 w-4 text-muted-foreground" />
+                        <span className="text-sm truncate">{invitacion.email_sucursal}</span>
+                      </div>
+
+                      <div className="flex items-start space-x-2">
+                        <MapPin className="h-4 w-4 text-muted-foreground mt-0.5 flex-shrink-0" />
+                        <div className="text-sm">
+                          <p className="font-medium">{invitacion.direccion}</p>
+                          <p className="text-muted-foreground">
+                            {invitacion.ciudad}, {invitacion.estado}
+                            {invitacion.codigo_postal && ` ${invitacion.codigo_postal}`}
+                          </p>
+                        </div>
+                      </div>
+
+                      {invitacion.telefono && (
+                        <div className="flex items-center space-x-2">
+                          <Phone className="h-4 w-4 text-muted-foreground" />
+                          <span className="text-sm">{invitacion.telefono}</span>
+                        </div>
+                      )}
+
+                      <div className="flex items-center justify-between pt-3 border-t">
+                        <span className={`text-xs ${estaExpirada ? 'text-red-600 dark:text-red-400 font-semibold' : 'text-muted-foreground'}`}>
+                          {estaExpirada 
+                            ? "Invitación expirada" 
+                            : `Expira en ${diasRestantes} día${diasRestantes !== 1 ? 's' : ''}`
+                          }
+                        </span>
+                        <Button 
+                          variant={estaExpirada ? "default" : "outline"}
+                          size="sm"
+                          onClick={() => handleReenviarInvitacion(invitacion)}
+                          disabled={estaReenviando}
+                        >
+                          {estaReenviando ? "Reenviando..." : "Reenviar"}
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )
+              })}
+            </div>
+          </div>
+        )}
+
         {/* Lista de Sucursales */}
-        {sucursalesFiltradas.length === 0 ? (
+        {sucursalesFiltradas.length === 0 && invitacionesPendientes.length === 0 ? (
           <Card>
             <CardContent className="text-center py-12">
               <MapPin className="h-16 w-16 text-gray-400 mx-auto mb-4" />
@@ -217,78 +379,81 @@ export default function SucursalesPage() {
               )}
             </CardContent>
           </Card>
-        ) : (
-          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-            {sucursalesFiltradas.map((sucursal) => (
-              <Card key={sucursal.id} className="hover:shadow-lg transition-shadow">
-                <CardHeader className="pb-3">
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <CardTitle className="text-lg font-semibold mb-2">
-                        {sucursal.nombre_sucursal}
-                      </CardTitle>
-                      <div className="flex items-center space-x-2 mb-2">
-                        <Badge variant={sucursal.is_active ? "default" : "secondary"}>
-                          {sucursal.is_active ? "Activa" : "Inactiva"}
-                        </Badge>
-                        <Badge variant={sucursal.is_verified ? "default" : "destructive"}>
-                          {sucursal.is_verified ? "Verificada" : "Sin verificar"}
-                        </Badge>
+        ) : sucursalesFiltradas.length > 0 ? (
+          <div>
+            <h3 className="text-lg font-semibold mb-4">Sucursales Activas</h3>
+            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+              {sucursalesFiltradas.map((sucursal) => (
+                <Card key={sucursal.id} className="hover:shadow-lg transition-shadow">
+                  <CardHeader className="pb-3">
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <CardTitle className="text-lg font-semibold mb-2">
+                          {sucursal.nombre_sucursal}
+                        </CardTitle>
+                        <div className="flex items-center space-x-2 mb-2">
+                          <Badge variant={sucursal.is_active ? "default" : "secondary"}>
+                            {sucursal.is_active ? "Activa" : "Inactiva"}
+                          </Badge>
+                          <Badge variant={sucursal.is_verified ? "default" : "destructive"}>
+                            {sucursal.is_verified ? "Verificada" : "Sin verificar"}
+                          </Badge>
+                        </div>
                       </div>
-                    </div>
-                    <Button variant="ghost" size="sm">
-                      <Settings className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </CardHeader>
-                
-                <CardContent className="space-y-3">
-                  <div className="flex items-start space-x-2">
-                    <MapPin className="h-4 w-4 text-muted-foreground mt-0.5 flex-shrink-0" />
-                    <div className="text-sm">
-                      <p className="font-medium">{sucursal.direccion}</p>
-                      <p className="text-muted-foreground">
-                        {sucursal.ciudad}, {sucursal.estado}
-                        {sucursal.codigo_postal && ` ${sucursal.codigo_postal}`}
-                      </p>
-                    </div>
-                  </div>
-
-                  {sucursal.telefono_contacto && (
-                    <div className="flex items-center space-x-2">
-                      <Phone className="h-4 w-4 text-muted-foreground" />
-                      <span className="text-sm">{sucursal.telefono_contacto}</span>
-                    </div>
-                  )}
-
-                  <div className="flex items-center space-x-2">
-                    <Mail className="h-4 w-4 text-muted-foreground" />
-                    <span className="text-sm truncate">{sucursal.email_contacto_sucursal}</span>
-                  </div>
-
-                  <div className="flex items-center justify-between pt-3 border-t">
-                    <div className="flex items-center space-x-2">
-                      <Users className="h-4 w-4 text-muted-foreground" />
-                      <span className="text-sm text-muted-foreground">
-                        {sucursal.total_usuarios || 0} usuarios
-                      </span>
-                    </div>
-                    
-                    <div className="flex space-x-2">
-                      <Button 
-                        variant="outline" 
-                        size="sm"
-                        onClick={() => router.push(`/dashboard/sucursales/${sucursal.id}`)}
-                      >
-                        Ver Dashboard
+                      <Button variant="ghost" size="sm">
+                        <Settings className="h-4 w-4" />
                       </Button>
                     </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+                  </CardHeader>
+                  
+                  <CardContent className="space-y-3">
+                    <div className="flex items-start space-x-2">
+                      <MapPin className="h-4 w-4 text-muted-foreground mt-0.5 flex-shrink-0" />
+                      <div className="text-sm">
+                        <p className="font-medium">{sucursal.direccion}</p>
+                        <p className="text-muted-foreground">
+                          {sucursal.ciudad}, {sucursal.estado}
+                          {sucursal.codigo_postal && ` ${sucursal.codigo_postal}`}
+                        </p>
+                      </div>
+                    </div>
+
+                    {sucursal.telefono_contacto && (
+                      <div className="flex items-center space-x-2">
+                        <Phone className="h-4 w-4 text-muted-foreground" />
+                        <span className="text-sm">{sucursal.telefono_contacto}</span>
+                      </div>
+                    )}
+
+                    <div className="flex items-center space-x-2">
+                      <Mail className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-sm truncate">{sucursal.email_contacto_sucursal}</span>
+                    </div>
+
+                    <div className="flex items-center justify-between pt-3 border-t">
+                      <div className="flex items-center space-x-2">
+                        <Users className="h-4 w-4 text-muted-foreground" />
+                        <span className="text-sm text-muted-foreground">
+                          {sucursal.total_usuarios || 0} usuarios
+                        </span>
+                      </div>
+                      
+                      <div className="flex space-x-2">
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => router.push(`/dashboard/sucursales/${sucursal.id}`)}
+                        >
+                          Ver Dashboard
+                        </Button>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
           </div>
-        )}
+        ) : null}
       </div>
 
       {/* Modal de Invitación */}
