@@ -8281,3 +8281,15 @@ La tabla de verificación que te mostré es **solo para debugging**. En producci
 
 ---
 
+_**User (2025-10-17 19:39Z)**_
+
+ahora cada que llegue un pedido a la tabla 'pedidos' es que se va a actualizar el contador del restaurante correcto???
+
+---
+
+_**Assistant (copilot/claude-sonnet-4.5)**_
+
+
+
+---
+

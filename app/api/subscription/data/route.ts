@@ -13,7 +13,6 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'restauranteId requerido' }, { status: 400 })
     }
 
-    // Verificar autenticación
     const cookieStore = cookies()
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
@@ -25,8 +24,6 @@ export async function GET(request: NextRequest) {
     const supabaseAdmin = createServiceRoleClient()
 
     // 1. Obtener suscripción activa más reciente
-    // Usar maybeSingle() para evitar errores cuando hay múltiples suscripciones
-    // Filtrar por status activo o trialing, ordenar por fecha de creación DESC
     const { data: subscriptionData, error: subError } = await supabaseAdmin
       .from('suscripciones')
       .select('*')
@@ -38,7 +35,6 @@ export async function GET(request: NextRequest) {
 
     if (subError) throw subError
 
-    // ✅ NO asumir 'trial' por defecto - usar null si no hay suscripción
     const currentPlan = subscriptionData?.plan_type || null
 
     // 2. Obtener límites de planes
@@ -52,46 +48,56 @@ export async function GET(request: NextRequest) {
 
     const planesLimites = configData.valor
 
-    // 3. Obtener uso actual
-    const currentMonth = new Date().toISOString().slice(0, 7) + '-01'
+    // 3. Obtener uso actual basado en el periodo de suscripción
+    let usageData = null
     
-    let { data: usageData, error: usageError } = await supabaseAdmin
-      .from('uso_restaurantes')
-      .select('*')
-      .eq('restaurante_id', restauranteId)
-      .eq('periodo_mes', currentMonth)
-      .single()
-
-    if (usageError && usageError.code !== 'PGRST116') throw usageError
-
-    // Crear registro de uso si no existe
-    if (!usageData) {
-      const { data: newUsage } = await supabaseAdmin
-        .from('uso_restaurantes')
-        .insert({
-          restaurante_id: restauranteId,
-          periodo_mes: currentMonth,
-          sucursales_activas: 0,
-          pedidos_procesados: 0
-        })
-        .select()
-        .single()
+    if (subscriptionData?.current_period_start) {
+      const periodStart = new Date(subscriptionData.current_period_start).toISOString().slice(0, 10)
       
-      usageData = newUsage || { sucursales_activas: 0, pedidos_procesados: 0 }
+      const { data: usage, error: usageError } = await supabaseAdmin
+        .from('uso_restaurantes')
+        .select('*')
+        .eq('restaurante_id', restauranteId)
+        .eq('periodo_mes', periodStart)
+        .single()
+
+      if (usageError && usageError.code !== 'PGRST116') throw usageError
+
+      usageData = usage
+
+      // Crear registro si no existe
+      if (!usageData) {
+        const { data: newUsage } = await supabaseAdmin
+          .from('uso_restaurantes')
+          .insert({
+            restaurante_id: restauranteId,
+            periodo_mes: periodStart,
+            sucursales_activas: 0,
+            pedidos_procesados: 0
+          })
+          .select()
+          .single()
+        
+        usageData = newUsage || { sucursales_activas: 0, pedidos_procesados: 0 }
+      }
+    } else {
+      // Si no hay suscripción, usar valores por defecto
+      usageData = { sucursales_activas: 0, pedidos_procesados: 0 }
     }
 
     const data = {
-        subscription: subscriptionData,
-        limits: currentPlan ? planesLimites[currentPlan] : null, // ✅ Devolver null si no hay plan
-        usage: usageData,
-        allPlans: planesLimites,
-        hasActiveSubscription: !!subscriptionData,
-        needsSubscription: !subscriptionData || (
-          subscriptionData.plan_type === 'trial' && new Date(subscriptionData.created_at).getTime() < new Date(Date.now() - 30*24*60*60*1000).getTime()
-        )
+      subscription: subscriptionData,
+      limits: currentPlan ? planesLimites[currentPlan] : null,
+      usage: usageData,
+      allPlans: planesLimites,
+      hasActiveSubscription: !!subscriptionData,
+      needsSubscription: !subscriptionData || (
+        subscriptionData.plan_type === 'trial' && 
+        new Date(subscriptionData.created_at).getTime() < new Date(Date.now() - 30*24*60*60*1000).getTime()
+      )
     }
     
-    console.log(`informacion de suscripción para restauranteId ${restauranteId}:`, data)
+    console.log(`Información de suscripción para restauranteId ${restauranteId}:`, data)
 
     return NextResponse.json(data, { status: 200 })
 
