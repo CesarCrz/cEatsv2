@@ -1,205 +1,224 @@
-import { createClient } from '@/lib/supabase/server'
-import { NextResponse } from 'next/server'
-import { generateTemporaryPassword, sendCustomEmail, getNewBrachTemplate } from '@/lib/email'
+import { NextRequest, NextResponse } from 'next/server'
+import { createServiceRoleClient } from '@/lib/supabase/service-role'
 
-export async function POST(request: Request) {
-    try {
-        const { 
-            restaurante_id,
-            nombre_sucursal,
-            direccion,
-            telefono_contacto,
-            email_contacto_sucursal,
-            ciudad,
-            estado,
-            codigo_postal,
-            latitud,
-            longitud
-        } = await request.json()
+// Interface para la respuesta de la invitación
+interface InvitacionConRestaurante {
+  id: string
+  restaurante_id: string
+  email_sucursal: string
+  nombre_sucursal: string
+  direccion: string
+  telefono: string | null
+  ciudad: string
+  estado: string
+  codigo_postal: string | null
+  usado: boolean
+  fecha_expiracion: string
+  restaurantes: {
+    nombre: string
+  }
+}
 
-        const supabase = await createClient()
-        const { data: { user } } = await supabase.auth.getUser()
+export async function POST(request: NextRequest) {
+  try {
+    const { token, password } = await request.json()
 
-        if (!user) {
-            return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
-        }
-
-        const { data: profile } = await supabase
-            .from('user_profiles')
-            .select('restaurante_id')
-            .eq('id', user.id)
-            .single()
-
-        if (!profile) {
-            return NextResponse.json({ error: 'Perfil no encontrado' }, { status: 404 })
-        }
-
-        const { data: subscriptionData } = await supabase
-            .from('suscripciones')
-            .select('plan_type')
-            .eq('restaurante_id', profile?.restaurante_id)
-            .eq('status', 'active')
-            .single()
-
-        if (!subscriptionData) {
-            return NextResponse.json({ 
-                error: 'No hay suscripción activa. Por favor, subscribe a un plan para continuar.',
-                code: 'NO_SUBSCRIPTION'
-            }, { status: 403 })
-        }
-
-        const currentPlan = subscriptionData.plan_type
-        
-        // obtenemos los limites del plan
-        const { data: configData } = await supabase
-            .from('configuraciones_sistema')
-            .select('valor')
-            .eq('clave', 'planes_limites')
-            .single()
-        
-        if (!configData) {
-            return NextResponse.json({ error: 'Configuración de planes no encontrada' }, { status: 500 })
-        }
-        
-        const planesLimites = configData.valor as any
-        const planLimits = planesLimites[currentPlan]
-
-        if (!planLimits) {
-            return NextResponse.json({ 
-                error: 'Plan no encontrado en la configuración',
-                code: 'INVALID_PLAN'
-            }, { status: 500 })
-        }
-
-        //contar cantidad de sucursales actuales
-        const { count: sucursalesCounts} = await supabase
-            .from('sucursales')
-            .select('*', {count: 'exact',  head: true})
-            .eq('restaurante_id', profile.restaurante_id)
-
-        // debemos validar el limite de sucursales
-        if (planLimits.max_sucursales !== 'unlimited' && sucursalesCounts !== null && sucursalesCounts >= planLimits.max_sucursales) {
-            return NextResponse.json({ 
-                error: `Has alcanzado el límite de ${planLimits.max_sucursales} sucursales para tu plan ${planLimits.nombre_display}. Por favor, actualiza tu plan para agregar más sucursales.`,
-                code: 'LIMIT_EXCEEDED',
-                upgradeRequired: true,
-                currentCount: sucursalesCounts,
-                maxAllowed: planLimits.max_sucursales
-            }, { status: 403 })
-        }
-        
-
-        // Generar código temporal para la sucursal
-        const tempPassword = generateTemporaryPassword()
-        const verificationCode = Math.floor(100000 + Math.random() * 900000).toString()
-        const expirationDate = new Date()
-        expirationDate.setHours(expirationDate.getHours() + 24) // 24 horas para sucursales
-
-        // Crear la sucursal
-        const { data: sucursal, error: sucursalError } = await supabase
-            .from('sucursales')
-            .insert({
-                restaurante_id: restaurante_id,
-                nombre_sucursal: nombre_sucursal,
-                direccion: direccion,
-                telefono_contacto: telefono_contacto || null,
-                email_contacto_sucursal: email_contacto_sucursal,
-                ciudad: ciudad,
-                estado: estado,
-                codigo_postal: codigo_postal || null,
-                latitud: latitud || null,
-                longitud: longitud || null,
-                verification_code: verificationCode,
-                verification_code_expires_at: expirationDate.toISOString(),
-                is_verified: false,
-                is_active: true,
-                created_at: new Date().toISOString(),
-                updated_at: new Date().toISOString()
-            })
-            .select()
-            .single()
-
-        if (sucursalError) {
-            return NextResponse.json({ 
-                error: 'Error al crear la sucursal' 
-            }, { status: 500 })
-        }
-
-        // Crear usuario para la sucursal con contraseña temporal
-        const { data: authData, error: authError } = await supabase.auth.admin.createUser({
-            email: email_contacto_sucursal,
-            password: tempPassword,
-            email_confirm: true // Auto-confirmar el email para sucursales
-        })
-
-        if (authError) {
-            return NextResponse.json({ 
-                error: 'Error al crear usuario de sucursal' 
-            }, { status: 500 })
-        }
-
-        // Crear perfil para el usuario de sucursal
-        await supabase
-            .from('user_profiles')
-            .insert({
-                id: authData.user.id,
-                email: email_contacto_sucursal,
-                nombre: `Sucursal ${nombre_sucursal}`,
-                restaurante_id: restaurante_id,
-                sucursal_id: sucursal.id,
-                role: 'sucursal',
-                is_active: true,
-                is_first_login: true,
-                temp_password: tempPassword,
-                email_verified: true, // Auto-verificado para sucursales
-                created_at: new Date().toISOString(),
-                updated_at: new Date().toISOString()
-            })
-
-        // Obtener datos del restaurante para el email
-        const { data: restaurante } = await supabase
-            .from('restaurantes')
-            .select('nombre')
-            .eq('id', restaurante_id)
-            .single()
-
-        // Actualizar contador de uso de sucursales
-        const currentMonth = new Date().toISOString().slice(0, 7) // YYYY-MM format
-        await supabase
-            .from('uso_restaurantes')
-            .upsert({
-                restaurante_id: restaurante_id,
-                mes: currentMonth,
-                sucursales_creadas: (sucursalesCounts || 0) + 1
-            }, {
-                onConflict: 'restaurante_id,mes'
-            })
-
-        // Enviar email de bienvenida a la sucursal
-        const template = getNewBrachTemplate(
-            nombre_sucursal,
-            tempPassword,
-            restaurante?.nombre || 'Restaurante',
-            email_contacto_sucursal
-        )
-        
-        await sendCustomEmail(email_contacto_sucursal, template)
-
-        return NextResponse.json({ 
-            success: true, 
-            sucursal: {
-                id: sucursal.id,
-                nombre_sucursal: sucursal.nombre_sucursal,
-                direccion: sucursal.direccion,
-                telefono: sucursal.telefono,
-                email_contacto: sucursal.email_contacto_sucursal,
-                ciudad: sucursal.ciudad,
-                is_active: sucursal.is_active
-            },
-            message: 'Sucursal creada exitosamente'
-        })
-    } catch (error) {
-        console.error('Error al crear sucursal:', error)
-        return NextResponse.json({ error: 'Error en el servidor' }, { status: 500 })
+    // Validaciones básicas
+    if (!token || !password) {
+      return NextResponse.json(
+        { error: 'Token y contraseña son requeridos' },
+        { status: 400 }
+      )
     }
+
+    if (password.length < 8) {
+      return NextResponse.json(
+        { error: 'La contraseña debe tener al menos 8 caracteres' },
+        { status: 400 }
+      )
+    }
+
+    const supabaseAdmin = createServiceRoleClient()
+
+    // 1️⃣ VALIDAR TOKEN Y OBTENER INVITACIÓN
+    const { data: invitation, error: invitationError } = await supabaseAdmin
+      .from('invitaciones_sucursales')
+      .select(`
+        id,
+        restaurante_id,
+        email_sucursal,
+        nombre_sucursal,
+        direccion,
+        telefono,
+        ciudad,
+        estado,
+        codigo_postal,
+        usado,
+        fecha_expiracion,
+        restaurantes!inner(nombre)
+      `)
+      .eq('token_invitacion', token)
+      .single<InvitacionConRestaurante>()
+
+    if (invitationError || !invitation) {
+      return NextResponse.json(
+        { error: 'Invitación no válida o no encontrada' },
+        { status: 404 }
+      )
+    }
+
+    // 2️⃣ VERIFICAR QUE NO ESTÉ USADA
+    if (invitation.usado === true) {
+      return NextResponse.json(
+        { error: 'Esta invitación ya ha sido utilizada' },
+        { status: 400 }
+      )
+    }
+
+    // 3️⃣ VERIFICAR QUE NO HAYA EXPIRADO
+    const expirationDate = new Date(invitation.fecha_expiracion)
+    const now = new Date()
+    
+    if (now > expirationDate) {
+      return NextResponse.json(
+        { error: 'Esta invitación ha expirado. Solicita una nueva al administrador.' },
+        { status: 400 }
+      )
+    }
+
+    // 4️⃣ VERIFICAR QUE EL EMAIL NO ESTÉ REGISTRADO
+    const { data: existingUser } = await supabaseAdmin
+      .from('user_profiles')
+      .select('id')
+      .eq('email', invitation.email_sucursal)
+      .single()
+
+    if (existingUser) {
+      return NextResponse.json(
+        { error: 'Ya existe una cuenta con este email. Contacta a support@ceats.app' },
+        { status: 400 }
+      )
+    }
+
+    // 5️⃣ CREAR USUARIO EN AUTH
+    const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
+      email: invitation.email_sucursal,
+      password: password,
+      email_confirm: true, // Auto-confirmar email
+      user_metadata: {
+        role: 'sucursal',
+        restaurante_id: invitation.restaurante_id,
+        nombre_sucursal: invitation.nombre_sucursal
+      }
+    })
+
+    if (authError) {
+      console.error('Error creando usuario:', authError)
+      if (authError.message.includes('already registered')) {
+        return NextResponse.json(
+          { error: 'Ya existe una cuenta con este email' },
+          { status: 400 }
+        )
+      }
+      return NextResponse.json(
+        { error: 'Error al crear la cuenta: ' + authError.message },
+        { status: 500 }
+      )
+    }
+
+    if (!authData.user) {
+      return NextResponse.json(
+        { error: 'Error al crear el usuario' },
+        { status: 500 }
+      )
+    }
+
+    // 6️⃣ CREAR SUCURSAL
+    const { data: sucursal, error: sucursalError } = await supabaseAdmin
+      .from('sucursales')
+      .insert({
+        restaurante_id: invitation.restaurante_id,
+        nombre_sucursal: invitation.nombre_sucursal,
+        direccion: invitation.direccion,
+        telefono_contacto: invitation.telefono,
+        email_contacto_sucursal: invitation.email_sucursal,
+        ciudad: invitation.ciudad,
+        estado: invitation.estado,
+        codigo_postal: invitation.codigo_postal,
+        is_verified: true,
+        is_active: true
+      })
+      .select()
+      .single()
+
+    if (sucursalError) {
+      console.error('Error al crear sucursal:', sucursalError)
+      
+      // Rollback: eliminar usuario creado
+      await supabaseAdmin.auth.admin.deleteUser(authData.user.id)
+      
+      return NextResponse.json(
+        { error: 'Error al crear la sucursal. Contacta a support@ceats.app' },
+        { status: 500 }
+      )
+    }
+
+    // 7️⃣ CREAR PERFIL DEL USUARIO
+    const { error: profileError } = await supabaseAdmin
+      .from('user_profiles')
+      .insert({
+        id: authData.user.id,
+        email: invitation.email_sucursal,
+        nombre: invitation.nombre_sucursal,
+        restaurante_id: invitation.restaurante_id,
+        sucursal_id: sucursal.id,
+        role: 'sucursal',
+        is_active: true,
+        is_first_login: false,
+        email_verified: true
+      })
+
+    if (profileError) {
+      console.error('Error al crear perfil:', profileError)
+      
+      // Rollback: eliminar sucursal y usuario
+      await supabaseAdmin.from('sucursales').delete().eq('id', sucursal.id)
+      await supabaseAdmin.auth.admin.deleteUser(authData.user.id)
+      
+      return NextResponse.json(
+        { error: 'Error al crear el perfil. Contacta a support@ceats.app' },
+        { status: 500 }
+      )
+    }
+
+    // 8️⃣ MARCAR INVITACIÓN COMO USADA
+    const { error: updateInvitationError } = await supabaseAdmin
+      .from('invitaciones_sucursales')
+      .update({ usado: true })
+      .eq('id', invitation.id)
+
+    if (updateInvitationError) {
+      console.error('Error al marcar invitación como usada:', updateInvitationError)
+      // No hacemos rollback aquí porque la cuenta ya se creó exitosamente
+    }
+
+    // 9️⃣ RETORNAR ÉXITO
+    return NextResponse.json({
+      success: true,
+      message: 'Cuenta creada exitosamente',
+      data: {
+        user_id: authData.user.id,
+        email: invitation.email_sucursal,
+        sucursal_id: sucursal.id,
+        restaurante_id: invitation.restaurante_id
+      }
+    })
+
+  } catch (error) {
+    console.error('Error en /api/sucursales/create:', error)
+    return NextResponse.json(
+      { error: 'Error interno del servidor. Contacta a support@ceats.app' },
+      { status: 500 }
+    )
+  }
 }

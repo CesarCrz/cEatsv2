@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { CheckCircle, XCircle, Clock, Loader2 } from 'lucide-react'
+import { CheckCircle, XCircle, Clock, Loader2, Eye, EyeOff } from 'lucide-react'
 
 interface InvitationData {
   id: string
@@ -35,20 +35,24 @@ export default function AceptarInvitacionPage() {
   const [invitation, setInvitation] = useState<InvitationData | null>(null)
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [errors, setErrors] = useState<string[]>([])
   const [isCreating, setIsCreating] = useState(false)
 
   const supabase = createClient()
 
   useEffect(() => {
-    verifyInvitation()
+    if (token) {
+      verifyInvitation()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token])
 
   const verifyInvitation = async () => {
     try {
       setPageState('loading')
       
-      // Llamar al endpoint de validación
       const response = await fetch('/api/sucursales/validate-invitation', {
         method: 'POST',
         headers: {
@@ -94,98 +98,40 @@ export default function AceptarInvitacionPage() {
     if (!validateForm() || !invitation) return
 
     setIsCreating(true)
+    setErrors([])
     
     try {
-      // 1. Crear usuario en Supabase Auth
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email: invitation.email_sucursal,
-        password: password,
-        options: {
-          emailRedirectTo: undefined // No enviar email de confirmación
-        }
+      // Llamar al endpoint de creación
+      const response = await fetch('/api/sucursales/create', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          token,
+          password
+        }),
       })
 
-      if (authError) {
-        if (authError.message.includes('already registered')) {
-          setErrors(['Ya existe una cuenta con este email. Contacta a support@ceats.app'])
-        } else {
-          setErrors(['Error al crear la cuenta: ' + authError.message])
-        }
+      const result = await response.json()
+
+      if (!response.ok) {
+        setErrors([result.error || 'Error al crear la cuenta'])
         return
       }
 
-      if (!authData.user) {
-        setErrors(['Error al crear el usuario. Contacta a support@ceats.app'])
-        return
-      }
-
-      // 2. Crear la sucursal
-      const { data: sucursal, error: sucursalError } = await supabase
-        .from('sucursales')
-        .insert({
-          restaurante_id: invitation.restaurante_id,
-          nombre_sucursal: invitation.nombre_sucursal,
-          direccion: invitation.direccion,
-          telefono_contacto: invitation.telefono,
-          email_contacto_sucursal: invitation.email_sucursal,
-          ciudad: invitation.ciudad,
-          estado: invitation.estado,
-          codigo_postal: invitation.codigo_postal,
-          is_verified: true, // Auto-verificada por invitación
-          is_active: true,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        })
-        .select()
-        .single()
-
-      if (sucursalError) {
-        console.error('Error al crear sucursal:', sucursalError)
-        setErrors(['Error al crear la sucursal. Contacta a support@ceats.app'])
-        return
-      }
-
-      // 3. Crear perfil del usuario
-      const { error: profileError } = await supabase
-        .from('user_profiles')
-        .insert({
-          id: authData.user.id,
-          email: invitation.email_sucursal,
-          nombre: `Sucursal ${invitation.nombre_sucursal}`,
-          restaurante_id: invitation.restaurante_id,
-          sucursal_id: sucursal.id,
-          role: 'sucursal',
-          is_active: true,
-          is_first_login: false, // Ya configuraron su contraseña
-          email_verified: true,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        })
-
-      if (profileError) {
-        console.error('Error al crear perfil:', profileError)
-        setErrors(['Error al crear el perfil. Contacta a support@ceats.app'])
-        return
-      }
-
-      // 4. Marcar invitación como usada
-      await supabase
-        .from('invitaciones_sucursales')
-        .update({ usado: true })
-        .eq('id', invitation.id)
-
-      // 5. Iniciar sesión automáticamente
+      // Iniciar sesión automáticamente
       const { error: signInError } = await supabase.auth.signInWithPassword({
         email: invitation.email_sucursal,
         password: password
       })
 
       if (signInError) {
-        // Aunque haya error al iniciar sesión, la cuenta se creó exitosamente
+        // Si falla el login, redirigir al login con mensaje
         router.push('/login?message=Cuenta creada exitosamente. Inicia sesión.')
       } else {
-        // Redirigir al dashboard de sucursal
-        router.push(`/dashboard/sucursales/${sucursal.id}`)
+        // Login exitoso, redirigir al dashboard de la sucursal
+        router.push(`/dashboard/sucursales/${result.data.sucursal_id}`)
       }
 
     } catch (error) {
@@ -280,7 +226,6 @@ export default function AceptarInvitacionPage() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              {/* Información de la sucursal */}
               <div className="bg-gray-50 p-4 rounded-lg space-y-2">
                 <h3 className="font-medium">Detalles de la Sucursal:</h3>
                 <p><strong>Nombre:</strong> {invitation?.nombre_sucursal}</p>
@@ -289,7 +234,6 @@ export default function AceptarInvitacionPage() {
                 <p><strong>Email:</strong> {invitation?.email_sucursal}</p>
               </div>
 
-              {/* Errores */}
               {errors.length > 0 && (
                 <Alert variant="destructive">
                   <AlertDescription>
@@ -302,34 +246,62 @@ export default function AceptarInvitacionPage() {
                 </Alert>
               )}
 
-              {/* Formulario de contraseña */}
               <div className="space-y-4">
                 <div>
                   <Label htmlFor="password">Contraseña</Label>
-                  <Input
-                    id="password"
-                    type="password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="Mínimo 8 caracteres"
-                    disabled={isCreating}
-                  />
+                  <div className="relative">
+                    <Input
+                      id="password"
+                      type={showPassword ? 'text' : 'password'}
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder="Mínimo 8 caracteres"
+                      disabled={isCreating}
+                      className="pr-10"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                      disabled={isCreating}
+                    >
+                      {showPassword ? (
+                        <EyeOff className="h-4 w-4" />
+                      ) : (
+                        <Eye className="h-4 w-4" />
+                      )}
+                    </button>
+                  </div>
                 </div>
 
                 <div>
                   <Label htmlFor="confirmPassword">Confirmar Contraseña</Label>
-                  <Input
-                    id="confirmPassword"
-                    type="password"
-                    value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
-                    placeholder="Repite tu contraseña"
-                    disabled={isCreating}
-                  />
+                  <div className="relative">
+                    <Input
+                      id="confirmPassword"
+                      type={showConfirmPassword ? 'text' : 'password'}
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      placeholder="Repite tu contraseña"
+                      disabled={isCreating}
+                      className="pr-10"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                      disabled={isCreating}
+                    >
+                      {showConfirmPassword ? (
+                        <EyeOff className="h-4 w-4" />
+                      ) : (
+                        <Eye className="h-4 w-4" />
+                      )}
+                    </button>
+                  </div>
                 </div>
               </div>
 
-              {/* Botones */}
               <div className="flex space-x-3">
                 <Button 
                   onClick={handleAcceptInvitation}

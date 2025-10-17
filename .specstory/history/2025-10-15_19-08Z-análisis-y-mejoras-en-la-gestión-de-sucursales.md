@@ -4028,7 +4028,7 @@ const handleReenviarInvitacion = async (invitacion: InvitacionPendiente) => {
 
 ---
 
-_**User (2025-10-17 17:58Z)**_
+_**User (2025-10-17 18:00Z)**_
 
 bueno, ahora que ya se sabe que correctamente es lo ideal, implementalo por favor!! 
 
@@ -4053,6 +4053,1430 @@ Necesito hacer lo siguiente:
 4. **Mostrar badge diferente** si la invitación está expirada
 
 Vamos a implementarlo: 
+```
+
+```
+
+```
+
+```
+
+```
+
+```
+Ahora voy a actualizar la UI para que muestre correctamente las invitaciones pendientes y expiradas, y el botón de reenviar con loading: 
+```
+
+```
+Perfecto! Ahora voy a verificar que no haya errores: Excelente! Ahora déjame verificar el contenido final para asegurarme de que todo esté correcto: Perfecto! Todo está implementado correctamente. Déjame crear un resumen de lo que se implementó:
+
+## ✅ IMPLEMENTACIÓN COMPLETADA: Reenvío de Invitaciones
+
+### 🎯 **Solución Eficiente Implementada**
+
+Se implementó el reenvío de invitaciones **reutilizando el endpoint existente** `/api/sucursales/invite`, siguiendo el principio DRY (Don't Repeat Yourself).
+
+---
+
+### 📋 **Cambios Realizados**
+
+#### **1. Estado de Loading para Reenvío**
+```typescript
+const [reenviandoId, setReenviandoId] = useState<string | null>(null)
+```
+- Permite mostrar feedback visual mientras se reenvía
+- Deshabilita el botón durante el proceso
+
+#### **2. Carga de Invitaciones Pendientes Y Expiradas**
+```typescript
+// Ahora trae TODAS las invitaciones no usadas (pendientes y expiradas)
+.eq('usado', false)
+.order('created_at', { ascending: false })
+// Removimos: .gt('fecha_expiracion', new Date().toISOString())
+```
+
+#### **3. Función de Reenvío**
+```typescript
+const handleReenviarInvitacion = async (invitacion: InvitacionPendiente) => {
+  // Llama al endpoint /invite con los datos de la invitación existente
+  // Maneja errores específicos como invitaciones aún válidas
+  // Muestra feedback apropiado al usuario
+}
+```
+
+#### **4. UI Mejorada con Estados Visuales**
+- **Badge Amarillo** → Invitación pendiente (no expirada)
+- **Badge Rojo** → Invitación expirada
+- **Borde Amarillo** → Tarjeta de invitación pendiente
+- **Borde Rojo** → Tarjeta de invitación expirada
+- **Botón "Reenviar"** → 
+  - Outline cuando está pendiente
+  - Default (destacado) cuando está expirada
+  - Loading state "Reenviando..." cuando está procesando
+
+---
+
+### 🔄 **Flujo de Reenvío**
+
+1. **Usuario hace click en "Reenviar"**
+2. **Se calcula si la invitación está expirada**
+3. **Se llama al endpoint `/api/sucursales/invite`** con los datos de la invitación
+4. **El backend valida**:
+   - ✅ Si está expirada → Crea nueva invitación y envía email
+   - ❌ Si aún es válida → Retorna error con `diasRestantes`
+   - ❌ Si el email ya está registrado → Retorna error específico
+5. **Se muestra feedback al usuario**:
+   - Éxito → "Invitación reenviada a {email}"
+   - Error → Mensaje específico del backend
+6. **Se recargan las invitaciones** para reflejar los cambios
+
+---
+
+### ✨ **Ventajas de esta Implementación**
+
+✅ **Sin duplicación de código** - Reutiliza toda la lógica existente  
+✅ **Validaciones consistentes** - Usa las mismas validaciones del endpoint original  
+✅ **Mantenimiento simple** - Un solo lugar para actualizar lógica  
+✅ **Feedback claro** - Muestra estados visuales distintos para pendientes/expiradas  
+✅ **UX mejorada** - Loading states y mensajes de error descriptivos  
+✅ **Manejo de casos edge** - Detecta invitaciones aún válidas vs expiradas  
+
+---
+
+### 🧪 **Cómo Probar**
+
+1. **Crear una invitación nueva** → Aparecerá con badge amarillo "Pendiente"
+2. **Esperar 3 días** (o cambiar fecha en DB) → Badge cambia a rojo "Expirada"
+3. **Click en "Reenviar" con invitación pendiente** → Error: "La invitación aún es válida por X días"
+4. **Click en "Reenviar" con invitación expirada** → Se crea nueva invitación y envía email
+5. **Verificar email** → Debe llegar con nuevo token y 3 días de expiración
+
+¿Todo listo! ¿Quieres que probemos algo específico o necesitas algún ajuste adicional? 🚀
+
+---
+
+_**User (2025-10-17 18:11Z)**_
+
+bueno, ahora ya funciona, ahora, lo que sigue es que al momento de abrir la invitación y que sea válida que en los campos de contraseña aparezca el ojo y que permita ver la contraseña ingresada, otra cosa, que quieres crear un usuario desde el frontend y sin considerar que el client no puede hacer nada realmente por las rls policies, entonces discutamos qué es lo que toca hacer aquí.
+
+Porque otra cosa, me di cuenta que tambien en el apartado de #file:sucursales tambien estás queriendo listar las sucursales, obteniendolas de la base de datos, cuando es frontend y lo mismo con el client
+
+---
+
+_**Assistant (copilot/claude-sonnet-4.5)**_
+
+¡Tienes toda la razón! Hay varios problemas críticos aquí:
+
+---
+
+## 🚨 PROBLEMAS IDENTIFICADOS
+
+### **1. Crear usuario desde frontend con RLS Policies**
+El archivo [`app/aceptar-invitacion/[token]/page.tsx`]`page.tsx` ) está intentando:
+- Crear usuario en `auth.users` ✅ (esto sí funciona desde frontend)
+- Insertar en `sucursales` ❌ (bloqueado por RLS)
+- Insertar en `user_profiles` ❌ (bloqueado por RLS)
+- Actualizar `invitaciones_sucursales` ❌ (bloqueado por RLS)
+
+### **2. Listar sucursales desde frontend**
+El archivo [`app/dashboard/restaurantes/[id]/sucursales/page.tsx`]`page.tsx` ) está haciendo queries directas a:
+- `sucursales` ❌ (puede estar bloqueado por RLS)
+- `invitaciones_sucursales` ❌ (bloqueado por RLS)
+
+---
+
+## ✅ SOLUCIÓN PROPUESTA
+
+### **A. Para aceptar invitación - Crear endpoint `/api/sucursales/accept-invitation`**
+
+**¿Por qué?**
+- Usa Service Role para bypass RLS
+- Valida todo el flujo en el backend
+- Más seguro y controlado
+
+**Flujo:**
+1. Frontend llama a `/api/sucursales/accept-invitation` con `{ token, password }`
+2. Backend (Service Role):
+   - Valida token
+   - Crea usuario en auth.users
+   - Crea sucursal
+   - Crea user_profile
+   - Marca invitación como usada
+   - Retorna credenciales para login
+3. Frontend inicia sesión con las credenciales
+
+---
+
+### **B. Para listar sucursales - Crear endpoint `/api/sucursales/[restauranteId]`**
+
+**¿Por qué?**
+- Centraliza validaciones
+- Usa Service Role si es necesario
+- O ajustamos RLS policies para que admins puedan leer sus sucursales
+
+**Opciones:**
+
+**Opción 1: Endpoint de API** (Recomendado)
+```
+GET /api/sucursales/[restauranteId]
+GET /api/sucursales/[restauranteId]/invitations
+```
+
+**Opción 2: Ajustar RLS Policies** (Más eficiente si las policies están bien)
+```sql
+-- Permitir a admins leer sucursales de su restaurante
+CREATE POLICY "Admins can read their branch offices"
+ON sucursales FOR SELECT
+USING (
+  restaurante_id IN (
+    SELECT restaurante_id FROM user_profiles 
+    WHERE id = auth.uid() AND role = 'admin'
+  )
+);
+
+-- Permitir a admins leer invitaciones de su restaurante
+CREATE POLICY "Admins can read invitations"
+ON invitaciones_sucursales FOR SELECT
+USING (
+  restaurante_id IN (
+    SELECT restaurante_id FROM user_profiles 
+    WHERE id = auth.uid() AND role = 'admin'
+  )
+);
+```
+
+---
+
+### **C. Para el input de contraseña con ojo** 👁️
+
+Simple cambio en el componente.
+
+---
+
+## 🤔 PREGUNTA PARA TI:
+
+**¿Qué prefieres para listar sucursales?**
+
+1. **Crear endpoints de API** (más seguro, más código)
+   - `/api/sucursales/[restauranteId]` - Lista sucursales
+   - `/api/sucursales/[restauranteId]/invitations` - Lista invitaciones
+
+2. **Ajustar RLS Policies** (más eficiente, menos código, requiere SQL)
+   - Modificar policies en Supabase para permitir lectura a admins
+   - El frontend sigue haciendo queries directas pero ahora sí funcionan
+
+---
+
+## 📋 MI RECOMENDACIÓN:
+
+**Combinar ambos enfoques:**
+
+1. ✅ **Crear endpoint `/api/sucursales/accept-invitation`** (obligatorio - escritura requiere Service Role)
+2. ✅ **Ajustar RLS Policies para lectura** (más eficiente para listados)
+3. ✅ **Agregar toggle de visibilidad en password inputs**
+
+**¿Estás de acuerdo? ¿Cuál enfoque prefieres?** 🚀
+
+---
+
+_**User (2025-10-17 18:17Z)**_
+
+para la creación del endpoint para crear las sucursales vamos a usar el siguiente endpoint: #file:route.ts 
+
+Para la opción B, te voy a dar las RLS Policies de lo que es la tabla 'sucursales' para que me discutamos la mejor opción considerando seguridad también:
+Name:
+
+rls_sucursales_policy
+
+Action:
+
+PERMISSIVE
+
+Command:
+
+ALL
+
+Target roles:
+
+public
+
+USING expression:
+
+((current_setting('role'::text) = 'service_role'::text) OR is_superadmin() OR (restaurante_id IN ( SELECT user_profiles.restaurante_id FROM user_profiles WHERE ((user_profiles.id = auth.uid()) AND (user_profiles.is_active = true)))))
+
+CHECK expression:
+
+((current_setting('role'::text) = 'service_role'::text) OR is_superadmin() OR is_restaurant_admin(restaurante_id))
+
+
+yo diria que podriamos ejecutar el endpoint para obtener las sucursales, dentro de la carpeta #file:sucursales, qué dices?
+
+---
+
+_**Assistant (copilot/claude-sonnet-4.5)**_
+
+¡Perfecto! Tienes razón en ambas cosas. Analicemos:
+
+---
+
+## 📊 ANÁLISIS DE RLS POLICIES
+
+### **Política Actual de `sucursales`:**
+
+```sql
+-- USING (lectura):
+- service_role ✅
+- superadmin ✅  
+- Usuarios del mismo restaurante que estén activos ✅
+
+-- CHECK (escritura):
+- service_role ✅
+- superadmin ✅
+- Admins del restaurante ✅
+```
+
+### **¿Funciona para nuestro caso?**
+
+✅ **Para LECTURA (SELECT):** SÍ
+- Los admins pueden ver las sucursales de su restaurante
+- El frontend puede hacer queries directas
+
+❌ **Para ESCRITURA (INSERT):** NO completamente
+- Solo admins del restaurante pueden insertar
+- Pero el usuario de la sucursal **NO existe aún** cuando acepta la invitación
+- Por eso necesitamos Service Role en ese momento específico
+
+---
+
+## ✅ SOLUCIÓN DEFINITIVA
+
+### **1️⃣ Para LISTAR sucursales** (Opción B - RLS Policy)
+
+**NO necesitamos endpoint adicional** porque:
+- ✅ La policy ya permite a los admins leer sus sucursales
+- ✅ Es más eficiente hacer query directa desde el frontend
+- ✅ Menos código que mantener
+
+**Conclusión:** Dejamos el código actual de [`page.tsx`](app/dashboard/restaurantes/[id]/sucursales/page.tsx ) tal cual (con pequeños ajustes)
+
+---
+
+### **2️⃣ Para ACEPTAR invitación** (Crear endpoint)
+
+**SÍ necesitamos endpoint `/api/sucursales/accept-invitation`** porque:
+- ❌ El usuario NO existe aún, no puede pasar la policy CHECK
+- ✅ Service Role puede crear todo el flujo atómicamente
+- ✅ Más seguro y controlado
+
+**Ubicación propuesta:**
+```
+app/api/sucursales/accept-invitation/route.ts
+```
+
+---
+
+### **3️⃣ Para CREAR sucursal inicial** (endpoint `/create`)
+
+Veo que existe [`app/api/sucursales/create/route.ts`]`route.ts` ) pero **está vacío**.
+
+**¿Este endpoint es para crear la sucursal inicial del restaurante?** Si es así:
+- Podemos reutilizarlo
+- O usar solo para cuando el admin crea manualmente (sin invitación)
+
+---
+
+## 🎯 PLAN DE ACCIÓN
+
+### **Paso 1: Crear `route.ts`**
+```typescript
+POST /api/sucursales/accept-invitation
+Body: { token: string, password: string }
+- Valida token con Service Role
+- Crea usuario en auth.users
+- Crea sucursal
+- Crea user_profile
+- Marca invitación como usada
+- Retorna: { success, email, message }
+```
+
+### **Paso 2: Actualizar RLS de `invitaciones_sucursales`**
+Para que los admins puedan leer sus invitaciones:
+
+```sql
+CREATE POLICY "Admins can read their invitations"
+ON invitaciones_sucursales FOR SELECT
+USING (
+  restaurante_id IN (
+    SELECT restaurante_id FROM user_profiles 
+    WHERE id = auth.uid() AND role = 'admin' AND is_active = true
+  )
+);
+```
+
+### **Paso 3: Dejar queries directas en el frontend**
+- ✅ [`page.tsx`](app/dashboard/restaurantes/[id]/sucursales/page.tsx ) sigue haciendo queries directas (ya funciona con RLS)
+- ✅ Solo necesitamos agregar la policy para `invitaciones_sucursales`
+
+### **Paso 4: Agregar toggle de visibilidad en password**
+Simple cambio UI en [`app/aceptar-invitacion/[token]/page.tsx`](app/aceptar-invitacion/[token]/page.tsx )
+
+---
+
+## ❓ PREGUNTAS ANTES DE IMPLEMENTAR:
+
+1. **¿El archivo [`app/api/sucursales/create/route.ts`]`route.ts` ) vacío es intencional?**
+   - ¿Lo eliminamos?
+   - ¿Lo usamos para algo específico?
+
+2. **¿Tienes acceso a ejecutar SQL en Supabase** para agregar la policy de `invitaciones_sucursales`?
+
+3. **¿Procedo con crear el endpoint `/accept-invitation` y actualizar el frontend?**
+
+Dime y empiezo con la implementación completa. 🚀
+
+---
+
+_**User (2025-10-17 18:23Z)**_
+
+el archvo que ves actualmente vacío es para crear la sucursal en un endpoitn cuando acepte la invitación en lugar de /accept-inivitation como me habías mencionado, vamos a usar este archivo específico para crear la sucuersal tanto en supabase como en mis tablas de mi base de datos
+
+Ya apliqué los RLS Polciies en 'invitaciones_sucursales' ahora sus RLS Policies son los siguientes:
+Name:
+
+Admins can read their invitations
+
+Action:
+
+PERMISSIVE
+
+Command:
+
+SELECT
+
+Target roles:
+
+public
+
+USING expression:
+
+(restaurante_id IN ( SELECT user_profiles.restaurante_id FROM user_profiles WHERE ((user_profiles.id = auth.uid()) AND (user_profiles.role = 'admin'::text) AND (user_profiles.is_active = true))))
+
+CHECK expression:
+
+None
+
+y esta:
+
+Name:
+
+rls_invitaciones_policy
+
+Action:
+
+PERMISSIVE
+
+Command:
+
+ALL
+
+Target roles:
+
+public
+
+USING expression:
+
+((current_setting('role'::text) = 'service_role'::text) OR is_superadmin() OR is_restaurant_admin(restaurante_id))
+
+CHECK expression:
+
+((current_setting('role'::text) = 'service_role'::text) OR is_superadmin() OR is_restaurant_admin(restaurante_id))
+
+
+
+---
+
+_**Assistant (copilot/claude-sonnet-4.5)**_
+
+¡Perfecto! Ahora todo está claro. Vamos a implementar correctamente:
+
+---
+
+## 🎯 PLAN DE IMPLEMENTACIÓN
+
+### **1️⃣ Crear endpoint `route.ts`**
+Este endpoint se usará para **aceptar la invitación y crear la sucursal**.
+
+### **2️⃣ Actualizar página de aceptación**
+Para que use el nuevo endpoint en lugar de intentar crear desde frontend.
+
+### **3️⃣ Agregar toggle de visibilidad en password**
+Mejorar UX en el formulario.
+
+---
+
+## 🚀 IMPLEMENTACIÓN
+
+### **Paso 1: Crear endpoint `route.ts`**
+
+````typescript
+import { NextRequest, NextResponse } from 'next/server'
+import { createServiceRoleClient } from '@/lib/supabase/service-role'
+
+export async function POST(request: NextRequest) {
+  try {
+    const { token, password } = await request.json()
+
+    // Validaciones básicas
+    if (!token || !password) {
+      return NextResponse.json(
+        { error: 'Token y contraseña son requeridos' },
+        { status: 400 }
+      )
+    }
+
+    if (password.length < 8) {
+      return NextResponse.json(
+        { error: 'La contraseña debe tener al menos 8 caracteres' },
+        { status: 400 }
+      )
+    }
+
+    const supabaseAdmin = createServiceRoleClient()
+
+    // 1️⃣ VALIDAR TOKEN Y OBTENER INVITACIÓN
+    const { data: invitation, error: invitationError } = await supabaseAdmin
+      .from('invitaciones_sucursales')
+      .select(`
+        id,
+        restaurante_id,
+        email_sucursal,
+        nombre_sucursal,
+        direccion,
+        telefono,
+        ciudad,
+        estado,
+        codigo_postal,
+        usado,
+        fecha_expiracion,
+        restaurantes!inner(nombre)
+      `)
+      .eq('token_invitacion', token)
+      .single()
+
+    if (invitationError || !invitation) {
+      return NextResponse.json(
+        { error: 'Invitación no válida o no encontrada' },
+        { status: 404 }
+      )
+    }
+
+    // 2️⃣ VERIFICAR QUE NO ESTÉ USADA
+    if (invitation.usado === true) {
+      return NextResponse.json(
+        { error: 'Esta invitación ya ha sido utilizada' },
+        { status: 400 }
+      )
+    }
+
+    // 3️⃣ VERIFICAR QUE NO HAYA EXPIRADO
+    const expirationDate = new Date(invitation.fecha_expiracion)
+    const now = new Date()
+    
+    if (now > expirationDate) {
+      return NextResponse.json(
+        { error: 'Esta invitación ha expirado. Solicita una nueva al administrador.' },
+        { status: 400 }
+      )
+    }
+
+    // 4️⃣ VERIFICAR QUE EL EMAIL NO ESTÉ REGISTRADO
+    const { data: existingUser } = await supabaseAdmin
+      .from('user_profiles')
+      .select('id')
+      .eq('email', invitation.email_sucursal)
+      .single()
+
+    if (existingUser) {
+      return NextResponse.json(
+        { error: 'Ya existe una cuenta con este email. Contacta a support@ceats.app' },
+        { status: 400 }
+      )
+    }
+
+    // 5️⃣ CREAR USUARIO EN AUTH
+    const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
+      email: invitation.email_sucursal,
+      password: password,
+      email_confirm: true, // Auto-confirmar email
+      user_metadata: {
+        role: 'sucursal',
+        restaurante_id: invitation.restaurante_id,
+        nombre_sucursal: invitation.nombre_sucursal
+      }
+    })
+
+    if (authError) {
+      console.error('Error creando usuario:', authError)
+      if (authError.message.includes('already registered')) {
+        return NextResponse.json(
+          { error: 'Ya existe una cuenta con este email' },
+          { status: 400 }
+        )
+      }
+      return NextResponse.json(
+        { error: 'Error al crear la cuenta: ' + authError.message },
+        { status: 500 }
+      )
+    }
+
+    if (!authData.user) {
+      return NextResponse.json(
+        { error: 'Error al crear el usuario' },
+        { status: 500 }
+      )
+    }
+
+    // 6️⃣ CREAR SUCURSAL
+    const { data: sucursal, error: sucursalError } = await supabaseAdmin
+      .from('sucursales')
+      .insert({
+        restaurante_id: invitation.restaurante_id,
+        nombre_sucursal: invitation.nombre_sucursal,
+        direccion: invitation.direccion,
+        telefono_contacto: invitation.telefono,
+        email_contacto_sucursal: invitation.email_sucursal,
+        ciudad: invitation.ciudad,
+        estado: invitation.estado,
+        codigo_postal: invitation.codigo_postal,
+        is_verified: true,
+        is_active: true
+      })
+      .select()
+      .single()
+
+    if (sucursalError) {
+      console.error('Error al crear sucursal:', sucursalError)
+      
+      // Rollback: eliminar usuario creado
+      await supabaseAdmin.auth.admin.deleteUser(authData.user.id)
+      
+      return NextResponse.json(
+        { error: 'Error al crear la sucursal. Contacta a support@ceats.app' },
+        { status: 500 }
+      )
+    }
+
+    // 7️⃣ CREAR PERFIL DEL USUARIO
+    const { error: profileError } = await supabaseAdmin
+      .from('user_profiles')
+      .insert({
+        id: authData.user.id,
+        email: invitation.email_sucursal,
+        nombre: invitation.nombre_sucursal,
+        restaurante_id: invitation.restaurante_id,
+        sucursal_id: sucursal.id,
+        role: 'sucursal',
+        is_active: true,
+        is_first_login: false,
+        email_verified: true
+      })
+
+    if (profileError) {
+      console.error('Error al crear perfil:', profileError)
+      
+      // Rollback: eliminar sucursal y usuario
+      await supabaseAdmin.from('sucursales').delete().eq('id', sucursal.id)
+      await supabaseAdmin.auth.admin.deleteUser(authData.user.id)
+      
+      return NextResponse.json(
+        { error: 'Error al crear el perfil. Contacta a support@ceats.app' },
+        { status: 500 }
+      )
+    }
+
+    // 8️⃣ MARCAR INVITACIÓN COMO USADA
+    const { error: updateInvitationError } = await supabaseAdmin
+      .from('invitaciones_sucursales')
+      .update({ usado: true })
+      .eq('id', invitation.id)
+
+    if (updateInvitationError) {
+      console.error('Error al marcar invitación como usada:', updateInvitationError)
+      // No hacemos rollback aquí porque la cuenta ya se creó exitosamente
+    }
+
+    // 9️⃣ RETORNAR ÉXITO
+    return NextResponse.json({
+      success: true,
+      message: 'Cuenta creada exitosamente',
+      data: {
+        user_id: authData.user.id,
+        email: invitation.email_sucursal,
+        sucursal_id: sucursal.id,
+        restaurante_id: invitation.restaurante_id
+      }
+    })
+
+  } catch (error) {
+    console.error('Error en /api/sucursales/create:', error)
+    return NextResponse.json(
+      { error: 'Error interno del servidor. Contacta a support@ceats.app' },
+      { status: 500 }
+    )
+  }
+}
+````
+
+---
+
+### **Paso 2: Actualizar página de aceptación**
+
+````typescript
+'use client'
+
+import { useState, useEffect } from 'react'
+import { useParams, useRouter } from 'next/navigation'
+import { createClient } from '@/lib/supabase/client'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Alert, AlertDescription } from '@/components/ui/alert'
+import { CheckCircle, XCircle, Clock, Loader2, Eye, EyeOff } from 'lucide-react'
+
+interface InvitationData {
+  id: string
+  nombre_sucursal: string
+  email_sucursal: string
+  direccion: string
+  telefono: string | null
+  ciudad: string
+  estado: string
+  codigo_postal: string | null
+  restaurante_id: string
+  restaurante_nombre: string
+  fecha_expiracion: string
+}
+
+type PageState = 'loading' | 'valid' | 'expired' | 'used' | 'invalid' | 'creating'
+
+export default function AceptarInvitacionPage() {
+  const params = useParams()
+  const router = useRouter()
+  const token = params.token as string
+  
+  const [pageState, setPageState] = useState<PageState>('loading')
+  const [invitation, setInvitation] = useState<InvitationData | null>(null)
+  const [password, setPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
+  const [errors, setErrors] = useState<string[]>([])
+  const [isCreating, setIsCreating] = useState(false)
+
+  const supabase = createClient()
+
+  useEffect(() => {
+    verifyInvitation()
+  }, [token])
+
+  const verifyInvitation = async () => {
+    try {
+      setPageState('loading')
+      
+      const response = await fetch('/api/sucursales/validate-invitation', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ token }),
+      })
+
+      const result = await response.json()
+
+      if (!result.success) {
+        setPageState(result.status as PageState)
+        return
+      }
+
+      setInvitation(result.invitation)
+      setPageState('valid')
+      
+    } catch (error) {
+      console.error('Error al verificar invitación:', error)
+      setPageState('invalid')
+    }
+  }
+
+  const validateForm = () => {
+    const newErrors = []
+
+    if (!password) {
+      newErrors.push('La contraseña es requerida')
+    } else if (password.length < 8) {
+      newErrors.push('La contraseña debe tener al menos 8 caracteres')
+    }
+
+    if (password !== confirmPassword) {
+      newErrors.push('Las contraseñas no coinciden')
+    }
+
+    setErrors(newErrors)
+    return newErrors.length === 0
+  }
+
+  const handleAcceptInvitation = async () => {
+    if (!validateForm() || !invitation) return
+
+    setIsCreating(true)
+    setErrors([])
+    
+    try {
+      // Llamar al endpoint de creación
+      const response = await fetch('/api/sucursales/create', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          token,
+          password
+        }),
+      })
+
+      const result = await response.json()
+
+      if (!response.ok) {
+        setErrors([result.error || 'Error al crear la cuenta'])
+        return
+      }
+
+      // Iniciar sesión automáticamente
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email: invitation.email_sucursal,
+        password: password
+      })
+
+      if (signInError) {
+        // Si falla el login, redirigir al login con mensaje
+        router.push('/login?message=Cuenta creada exitosamente. Inicia sesión.')
+      } else {
+        // Login exitoso, redirigir al dashboard de la sucursal
+        router.push(`/dashboard/sucursales/${result.data.sucursal_id}`)
+      }
+
+    } catch (error) {
+      console.error('Error al aceptar invitación:', error)
+      setErrors(['Error inesperado. Contacta a support@ceats.app'])
+    } finally {
+      setIsCreating(false)
+    }
+  }
+
+  const renderContent = () => {
+    switch (pageState) {
+      case 'loading':
+        return (
+          <Card className="max-w-md mx-auto">
+            <CardContent className="pt-6">
+              <div className="flex items-center justify-center space-x-2">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                <span>Verificando invitación...</span>
+              </div>
+            </CardContent>
+          </Card>
+        )
+
+      case 'invalid':
+        return (
+          <Card className="max-w-md mx-auto">
+            <CardContent className="pt-6">
+              <div className="text-center space-y-4">
+                <XCircle className="h-16 w-16 text-red-500 mx-auto" />
+                <h2 className="text-xl font-semibold text-red-600">Invitación Inválida</h2>
+                <p className="text-gray-600">
+                  Esta invitación no es válida o ha sido eliminada.
+                </p>
+                <p className="text-sm text-gray-500">
+                  Si crees que esto es un error, contacta a <a href="mailto:support@ceats.app" className="text-blue-600 underline">support@ceats.app</a>
+                </p>
+                <Button onClick={() => router.push('/login')} variant="outline">
+                  Ir al Login
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )
+
+      case 'expired':
+        return (
+          <Card className="max-w-md mx-auto">
+            <CardContent className="pt-6">
+              <div className="text-center space-y-4">
+                <Clock className="h-16 w-16 text-orange-500 mx-auto" />
+                <h2 className="text-xl font-semibold text-orange-600">Invitación Expirada</h2>
+                <p className="text-gray-600">
+                  Esta invitación ha expirado (máximo 3 días). Solicita una nueva invitación al administrador.
+                </p>
+                <p className="text-sm text-gray-500">
+                  ¿Necesitas ayuda? Contacta a <a href="mailto:support@ceats.app" className="text-blue-600 underline">support@ceats.app</a>
+                </p>
+                <Button onClick={() => router.push('/login')} variant="outline">
+                  Ir al Login
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )
+
+      case 'used':
+        return (
+          <Card className="max-w-md mx-auto">
+            <CardContent className="pt-6">
+              <div className="text-center space-y-4">
+                <CheckCircle className="h-16 w-16 text-green-500 mx-auto" />
+                <h2 className="text-xl font-semibold text-green-600">Invitación Ya Utilizada</h2>
+                <p className="text-gray-600">
+                  Esta invitación ya ha sido aceptada. Si tienes problemas para acceder, contacta a <a href="mailto:support@ceats.app" className="text-blue-600 underline">support@ceats.app</a>
+                </p>
+                <Button onClick={() => router.push('/login')}>
+                  Ir al Login
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )
+
+      case 'valid':
+        return (
+          <Card className="max-w-lg mx-auto">
+            <CardHeader>
+              <CardTitle>Completar Registro de Sucursal</CardTitle>
+              <CardDescription>
+                Has sido invitado a unirte a <strong>{invitation?.restaurante_nombre}</strong> como sucursal <strong>{invitation?.nombre_sucursal}</strong>
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="bg-gray-50 p-4 rounded-lg space-y-2">
+                <h3 className="font-medium">Detalles de la Sucursal:</h3>
+                <p><strong>Nombre:</strong> {invitation?.nombre_sucursal}</p>
+                <p><strong>Dirección:</strong> {invitation?.direccion}</p>
+                <p><strong>Ciudad:</strong> {invitation?.ciudad}, {invitation?.estado}</p>
+                <p><strong>Email:</strong> {invitation?.email_sucursal}</p>
+              </div>
+
+              {errors.length > 0 && (
+                <Alert variant="destructive">
+                  <AlertDescription>
+                    <ul className="list-disc list-inside">
+                      {errors.map((error, index) => (
+                        <li key={index}>{error}</li>
+                      ))}
+                    </ul>
+                  </AlertDescription>
+                </Alert>
+              )}
+
+              <div className="space-y-4">
+                <div>
+                  <Label htmlFor="password">Contraseña</Label>
+                  <div className="relative">
+                    <Input
+                      id="password"
+                      type={showPassword ? 'text' : 'password'}
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder="Mínimo 8 caracteres"
+                      disabled={isCreating}
+                      className="pr-10"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                      disabled={isCreating}
+                    >
+                      {showPassword ? (
+                        <EyeOff className="h-4 w-4" />
+                      ) : (
+                        <Eye className="h-4 w-4" />
+                      )}
+                    </button>
+                  </div>
+                </div>
+
+                <div>
+                  <Label htmlFor="confirmPassword">Confirmar Contraseña</Label>
+                  <div className="relative">
+                    <Input
+                      id="confirmPassword"
+                      type={showConfirmPassword ? 'text' : 'password'}
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      placeholder="Repite tu contraseña"
+                      disabled={isCreating}
+                      className="pr-10"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                      disabled={isCreating}
+                    >
+                      {showConfirmPassword ? (
+                        <EyeOff className="h-4 w-4" />
+                      ) : (
+                        <Eye className="h-4 w-4" />
+                      )}
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex space-x-3">
+                <Button 
+                  onClick={handleAcceptInvitation}
+                  disabled={isCreating}
+                  className="flex-1"
+                >
+                  {isCreating ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Creando cuenta...
+                    </>
+                  ) : (
+                    'Aceptar Invitación'
+                  )}
+                </Button>
+                <Button 
+                  variant="outline" 
+                  onClick={() => router.push('/login')}
+                  disabled={isCreating}
+                >
+                  Cancelar
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )
+
+      default:
+        return null
+    }
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+      <div className="w-full max-w-2xl">
+        {renderContent()}
+      </div>
+    </div>
+  )
+}
+````
+
+---
+
+## ✅ RESUMEN DE CAMBIOS
+
+### **1. Endpoint `/api/sucursales/create`**
+✅ Usa Service Role para todas las operaciones  
+✅ Valida token, expiración y si ya fue usada  
+✅ Verifica que el email no esté registrado  
+✅ Crea usuario en auth con `admin.createUser`  
+✅ Crea sucursal en la tabla  
+✅ Crea perfil de usuario  
+✅ Marca invitación como usada  
+✅ Manejo de rollback si algo falla  
+
+### **2. Página de Aceptación**
+✅ Toggle de visibilidad en inputs de contraseña (👁️)  
+✅ Usa el nuevo endpoint `/api/sucursales/create`  
+✅ Ya no intenta insertar desde frontend  
+✅ Login automático tras crear cuenta  
+✅ Redirección al dashboard de la sucursal  
+
+### **3. RLS Policies**
+✅ Ya aplicadas correctamente en `invitaciones_sucursales`  
+✅ Los admins pueden leer sus invitaciones  
+✅ Service Role puede hacer todas las operaciones  
+
+---
+
+¿Listo para probar? 🚀
+
+---
+
+_**User (2025-10-17 18:24Z)**_
+
+ahora revisa nuevamente estos dos archivos para ver si están correctos por favor!!
+
+---
+
+_**Assistant (copilot/claude-sonnet-4.5)**_
+
+Voy a revisar ambos archivos cuidadosamente:
+
+## 🔍 REVISIÓN DEL ENDPOINT `route.ts`
+
+✅ **Imports correctos**
+✅ **Validaciones básicas**
+✅ **Uso de Service Role Client**
+✅ **Flujo completo de creación**
+
+**❌ PROBLEMAS ENCONTRADOS:**
+
+### **1. Tipo de dato de `invitation.restaurantes`**
+
+El query usa `restaurantes!inner(nombre)` pero luego no se accede correctamente en el código.
+
+### **2. Interface TypeScript faltante**
+
+No hay tipado para la respuesta de la invitación.
+
+---
+
+## 🔧 CORRECCIONES NECESARIAS
+
+````typescript
+import { NextRequest, NextResponse } from 'next/server'
+import { createServiceRoleClient } from '@/lib/supabase/service-role'
+
+// Definir interface para la invitación
+interface InvitacionResponse {
+  id: string
+  restaurante_id: string
+  email_sucursal: string
+  nombre_sucursal: string
+  direccion: string
+  telefono: string | null
+  ciudad: string
+  estado: string
+  codigo_postal: string | null
+  usado: boolean
+  fecha_expiracion: string
+  restaurantes: {
+    nombre: string
+  }
+}
+
+export async function POST(request: NextRequest) {
+  try {
+    const { token, password } = await request.json()
+
+    // Validaciones básicas
+    if (!token || !password) {
+      return NextResponse.json(
+        { error: 'Token y contraseña son requeridos' },
+        { status: 400 }
+      )
+    }
+
+    if (password.length < 8) {
+      return NextResponse.json(
+        { error: 'La contraseña debe tener al menos 8 caracteres' },
+        { status: 400 }
+      )
+    }
+
+    const supabaseAdmin = createServiceRoleClient()
+
+    // 1️⃣ VALIDAR TOKEN Y OBTENER INVITACIÓN
+    const { data: invitation, error: invitationError } = await supabaseAdmin
+      .from('invitaciones_sucursales')
+      .select(`
+        id,
+        restaurante_id,
+        email_sucursal,
+        nombre_sucursal,
+        direccion,
+        telefono,
+        ciudad,
+        estado,
+        codigo_postal,
+        usado,
+        fecha_expiracion,
+        restaurantes!inner(nombre)
+      `)
+      .eq('token_invitacion', token)
+      .single<InvitacionResponse>()
+
+    if (invitationError || !invitation) {
+      return NextResponse.json(
+        { error: 'Invitación no válida o no encontrada' },
+        { status: 404 }
+      )
+    }
+
+    // 2️⃣ VERIFICAR QUE NO ESTÉ USADA
+    if (invitation.usado === true) {
+      return NextResponse.json(
+        { error: 'Esta invitación ya ha sido utilizada' },
+        { status: 400 }
+      )
+    }
+
+    // 3️⃣ VERIFICAR QUE NO HAYA EXPIRADO
+    const expirationDate = new Date(invitation.fecha_expiracion)
+    const now = new Date()
+    
+    if (now > expirationDate) {
+      return NextResponse.json(
+        { error: 'Esta invitación ha expirado. Solicita una nueva al administrador.' },
+        { status: 400 }
+      )
+    }
+
+    // 4️⃣ VERIFICAR QUE EL EMAIL NO ESTÉ REGISTRADO
+    const { data: existingUser } = await supabaseAdmin
+      .from('user_profiles')
+      .select('id')
+      .eq('email', invitation.email_sucursal)
+      .single()
+
+    if (existingUser) {
+      return NextResponse.json(
+        { error: 'Ya existe una cuenta con este email. Contacta a support@ceats.app' },
+        { status: 400 }
+      )
+    }
+
+    // 5️⃣ CREAR USUARIO EN AUTH
+    const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
+      email: invitation.email_sucursal,
+      password: password,
+      email_confirm: true, // Auto-confirmar email
+      user_metadata: {
+        role: 'sucursal',
+        restaurante_id: invitation.restaurante_id,
+        nombre_sucursal: invitation.nombre_sucursal
+      }
+    })
+
+    if (authError) {
+      console.error('Error creando usuario:', authError)
+      if (authError.message.includes('already registered')) {
+        return NextResponse.json(
+          { error: 'Ya existe una cuenta con este email' },
+          { status: 400 }
+        )
+      }
+      return NextResponse.json(
+        { error: 'Error al crear la cuenta: ' + authError.message },
+        { status: 500 }
+      )
+    }
+
+    if (!authData.user) {
+      return NextResponse.json(
+        { error: 'Error al crear el usuario' },
+        { status: 500 }
+      )
+    }
+
+    // 6️⃣ CREAR SUCURSAL
+    const { data: sucursal, error: sucursalError } = await supabaseAdmin
+      .from('sucursales')
+      .insert({
+        restaurante_id: invitation.restaurante_id,
+        nombre_sucursal: invitation.nombre_sucursal,
+        direccion: invitation.direccion,
+        telefono_contacto: invitation.telefono,
+        email_contacto_sucursal: invitation.email_sucursal,
+        ciudad: invitation.ciudad,
+        estado: invitation.estado,
+        codigo_postal: invitation.codigo_postal,
+        is_verified: true,
+        is_active: true
+      })
+      .select()
+      .single()
+
+    if (sucursalError) {
+      console.error('Error al crear sucursal:', sucursalError)
+      
+      // Rollback: eliminar usuario creado
+      await supabaseAdmin.auth.admin.deleteUser(authData.user.id)
+      
+      return NextResponse.json(
+        { error: 'Error al crear la sucursal. Contacta a support@ceats.app' },
+        { status: 500 }
+      )
+    }
+
+    // 7️⃣ CREAR PERFIL DEL USUARIO
+    const { error: profileError } = await supabaseAdmin
+      .from('user_profiles')
+      .insert({
+        id: authData.user.id,
+        email: invitation.email_sucursal,
+        nombre: invitation.nombre_sucursal,
+        restaurante_id: invitation.restaurante_id,
+        sucursal_id: sucursal.id,
+        role: 'sucursal',
+        is_active: true,
+        is_first_login: false,
+        email_verified: true
+      })
+
+    if (profileError) {
+      console.error('Error al crear perfil:', profileError)
+      
+      // Rollback: eliminar sucursal y usuario
+      await supabaseAdmin.from('sucursales').delete().eq('id', sucursal.id)
+      await supabaseAdmin.auth.admin.deleteUser(authData.user.id)
+      
+      return NextResponse.json(
+        { error: 'Error al crear el perfil. Contacta a support@ceats.app' },
+        { status: 500 }
+      )
+    }
+
+    // 8️⃣ MARCAR INVITACIÓN COMO USADA
+    const { error: updateInvitationError } = await supabaseAdmin
+      .from('invitaciones_sucursales')
+      .update({ usado: true })
+      .eq('id', invitation.id)
+
+    if (updateInvitationError) {
+      console.error('Error al marcar invitación como usada:', updateInvitationError)
+      // No hacemos rollback aquí porque la cuenta ya se creó exitosamente
+    }
+
+    // 9️⃣ RETORNAR ÉXITO
+    return NextResponse.json({
+      success: true,
+      message: 'Cuenta creada exitosamente',
+      data: {
+        user_id: authData.user.id,
+        email: invitation.email_sucursal,
+        sucursal_id: sucursal.id,
+        restaurante_id: invitation.restaurante_id
+      }
+    })
+
+  } catch (error) {
+    console.error('Error en /api/sucursales/create:', error)
+    return NextResponse.json(
+      { error: 'Error interno del servidor. Contacta a support@ceats.app' },
+      { status: 500 }
+    )
+  }
+}
+````
+
+---
+
+## 🔍 REVISIÓN DE LA PÁGINA DE ACEPTACIÓN
+
+Déjame ver el archivo completo de la página para revisarlo:
+
+**¿Puedes compartirme el archivo completo de [`app/aceptar-invitacion/[token]/page.tsx`](app/aceptar-invitacion/[token]/page.tsx ) que implementaste?**
+
+Necesito verificar:
+1. ✅ Si tiene los toggles de visibilidad de contraseña
+2. ✅ Si llama correctamente al endpoint `/api/sucursales/create`
+3. ✅ Si maneja correctamente los errores
+4. ✅ Si hace el login y redirección correcta
+
+---
+
+## ✅ RESUMEN DE CORRECCIONES:
+
+**Endpoint `/api/sucursales/create`:**
+- ✅ Agregada interface `InvitacionResponse` para tipado correcto
+- ✅ Tipado explícito en el query `.single<InvitacionResponse>()`
+- ✅ Todo lo demás está correcto
+
+**Falta revisar:**
+- ⏳ Página de aceptación de invitación (necesito ver el código completo)
+
+¿Me compartes el archivo de la página para terminar la revisión? 🚀
+
+---
+
+_**User (2025-10-17 18:27Z)**_
+
+verifica tanto el endpoint #file:route.ts y tambien la pagin apra aceptar la invitacion: #file:page.tsx para ver si todo está correcto por favor
+
+---
+
+_**Assistant (copilot/claude-sonnet-4.5)**_
+
+¡Excelente! Voy a hacer una revisión exhaustiva de ambos archivos: Perfecto, no hay errores de compilación. Ahora voy a hacer una revisión lógica detallada:
+
+---
+
+## 🔍 REVISIÓN COMPLETA
+
+### ✅ **ENDPOINT `route.ts`**
+
+#### **Puntos Positivos:**
+✅ Usa Service Role Client correctamente  
+✅ Validaciones completas (token, password, expiración, email duplicado)  
+✅ Flujo atómico con rollback en caso de error  
+✅ Mensajes de error claros y descriptivos  
+✅ Manejo correcto de errores en cada paso  
+
+#### **⚠️ PROBLEMAS DETECTADOS:**
+
+**1. Tipado de la respuesta de la invitación**
+```typescript
+// Línea 27-43: El query trae `restaurantes!inner(nombre)` pero no está tipado
+const { data: invitation, error: invitationError } = await supabaseAdmin
+  .from('invitaciones_sucursales')
+  .select(`
+    ...
+    restaurantes!inner(nombre)  // ❌ Esto devuelve un objeto { nombre: string }
+  `)
+```
+
+**Problema:** TypeScript no sabe que `invitation.restaurantes` existe ni su estructura.
+
+**2. Acceso al nombre del restaurante**
+No se está usando el nombre del restaurante en ninguna parte, pero si se necesitara más adelante, causaría error de TypeScript.
+
+---
+
+### ✅ **PÁGINA `page.tsx`**
+
+#### **Puntos Positivos:**
+✅ Toggle de visibilidad en ambos campos de contraseña (👁️)  
+✅ Validación de formulario correcta  
+✅ Manejo de estados loading, error, success  
+✅ Llamada correcta al endpoint `/api/sucursales/create`  
+✅ Login automático después de crear la cuenta  
+✅ Redirección apropiada al dashboard  
+✅ Manejo de todos los estados posibles (loading, valid, expired, used, invalid)  
+
+#### **⚠️ PROBLEMAS DETECTADOS:**
+
+**1. Dependencia del useEffect**
+```typescript
+// Línea 46-48
+useEffect(() => {
+  verifyInvitation()
+}, [token])  // ❌ Falta verifyInvitation en las dependencias
+```
+
+**Problema:** React puede quejarse de la dependencia faltante.
+
+**2. Validación del endpoint de validación**
+El endpoint `/api/sucursales/validate-invitation` debe retornar `restaurante_nombre` pero la interface lo espera.
+
+---
+
+## 🔧 CORRECCIONES NECESARIAS
+
+### **1. Agregar tipado correcto en el endpoint:** 
+```
+
+```
+
+```
+
+```
+
 
 ---
 
