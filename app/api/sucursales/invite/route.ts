@@ -122,29 +122,52 @@ export async function POST(request: Request) {
             }
         }
 
-        // 2️⃣ VERIFICAR INVITACIONES Y USUARIOS EXISTENTES
-        // Verificar si ya existe una invitación pendiente para este email
+        // 2️⃣ VALIDAR QUE EL EMAIL NO ESTÉ YA REGISTRADO
+        const { data: existingUser } = await supabaseAdmin
+            .from('user_profiles')
+            .select('id, email, role, restaurante_id')
+            .eq('email', email_contacto_sucursal)
+            .single()
+
+        if (existingUser) {
+            return NextResponse.json(
+                { 
+                    error: 'Este correo electrónico ya está registrado en el sistema. No se puede invitar a un usuario que ya tiene una cuenta.',
+                    details: 'Si crees que esto es un error, contacta a support@ceats.app'
+                },
+                { status: 400 }
+            )
+        }
+
+        // 3️⃣ VALIDAR QUE NO TENGA INVITACIÓN PENDIENTE (en cualquier restaurante)
         const { data: existingInvitation } = await supabaseAdmin
             .from('invitaciones_sucursales')
-            .select('id, usado, fecha_expiracion')
+            .select('id, usado, fecha_expiracion, restaurante_id, restaurantes!inner(nombre)')
             .eq('email_sucursal', email_contacto_sucursal)
-            .eq('restaurante_id', restaurante_id)
             .eq('usado', false)
             .gt('fecha_expiracion', new Date().toISOString())
             .single()
 
         if (existingInvitation) {
-            return NextResponse.json({ 
-                error: 'Ya existe una invitación pendiente para este email' 
-            }, { status: 400 })
+            const diasRestantes = Math.ceil(
+                (new Date(existingInvitation.fecha_expiracion).getTime() - Date.now()) / (1000 * 60 * 60 * 24)
+            )
+            
+            return NextResponse.json(
+                { 
+                    error: `Este correo ya tiene una invitación pendiente para otro restaurante`,
+                    details: `La invitación expirará en ${diasRestantes} día(s). Si esto es un error, la persona debe esperar a que expire la invitación (máximo 3 días) sin aceptarla. Para más información, contacta a support@ceats.app`,
+                    diasRestantes
+                },
+                { status: 400 }
+            )
         }
 
-        // Verificar si ya existe una sucursal con este email
+        // 4️⃣ VERIFICAR SI YA EXISTE UNA SUCURSAL CON ESTE EMAIL
         const { data: existingSucursal } = await supabaseAdmin
             .from('sucursales')
             .select('id')
             .eq('email_contacto_sucursal', email_contacto_sucursal)
-            .eq('restaurante_id', restaurante_id)
             .single()
 
         if (existingSucursal) {
@@ -153,10 +176,10 @@ export async function POST(request: Request) {
             }, { status: 400 })
         }
 
-        // 3️⃣ CREAR INVITACIÓN
-        // Generar token único
+        // 5️⃣ GENERAR TOKEN Y CREAR INVITACIÓN (3 días de expiración)
         const token = crypto.randomUUID()
-        const expirationDate = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) // 7 días
+        const threeDaysFromNow = new Date()
+        threeDaysFromNow.setDate(threeDaysFromNow.getDate() + 3)
 
         const { data: invitation, error: invitationError } = await supabaseAdmin
             .from('invitaciones_sucursales')
@@ -171,7 +194,7 @@ export async function POST(request: Request) {
                 codigo_postal: codigo_postal || null,
                 token_invitacion: token,
                 usado: false,
-                fecha_expiracion: expirationDate.toISOString()
+                fecha_expiracion: threeDaysFromNow.toISOString()
             })
             .select()
             .single()
@@ -222,7 +245,7 @@ export async function POST(request: Request) {
                     email: email_contacto_sucursal,
                     nombre_sucursal,
                     token,
-                    expira: expirationDate.toISOString()
+                    expira: threeDaysFromNow.toISOString()
                 }
             })
         }
@@ -237,7 +260,7 @@ export async function POST(request: Request) {
                 email: email_contacto_sucursal,
                 nombre_sucursal,
                 token,
-                expira: expirationDate.toISOString()
+                expira: threeDaysFromNow.toISOString()
             }
         })
 

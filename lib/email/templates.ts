@@ -16,15 +16,12 @@ export function getLoginVerificationTemplate(codigo: string, nombre: string): Em
                 <tr>
                     <td align="center">
                         <table width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">
-                             Header 
                             <tr>
                                 <td style="background: linear-gradient(135deg, #2563eb 0%, #1e40af 100%); padding: 40px 30px; text-align: center;">
                                     <h1 style="color: #ffffff; margin: 0; font-size: 32px; font-weight: 700; letter-spacing: -0.5px;">cEats</h1>
                                     <p style="color: rgba(255, 255, 255, 0.9); margin: 8px 0 0 0; font-size: 14px; font-weight: 500;">Gestión Inteligente de Pedidos</p>
                                 </td>
                             </tr>
-                            
-                             Content 
                             <tr>
                                 <td style="padding: 50px 40px;">
                                     <h2 style="color: #1e293b; margin: 0 0 20px 0; font-size: 24px; font-weight: 600; text-align: center;">Código de Verificación</h2>
@@ -36,8 +33,6 @@ export function getLoginVerificationTemplate(codigo: string, nombre: string): Em
                                     <p style="color: #64748b; line-height: 1.6; margin: 0 0 30px 0; font-size: 16px;">
                                         Hemos recibido una solicitud para iniciar sesión en tu cuenta. Utiliza el siguiente código de verificación:
                                     </p>
-                                    
-                                     Verification Code Box 
                                     <table width="100%" cellpadding="0" cellspacing="0" style="margin: 30px 0;">
                                         <tr>
                                             <td style="background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%); border: 2px solid #2563eb; border-radius: 12px; padding: 30px; text-align: center;">
@@ -52,8 +47,6 @@ export function getLoginVerificationTemplate(codigo: string, nombre: string): Em
                                     <p style="color: #64748b; line-height: 1.6; margin: 30px 0; font-size: 16px; text-align: center;">
                                         Este código expirará en <strong style="color: #1e293b;">10 minutos</strong>
                                     </p>
-                                    
-                                     Security Notice 
                                     <table width="100%" cellpadding="0" cellspacing="0" style="margin: 30px 0;">
                                         <tr>
                                             <td style="background-color: #fef3c7; border-left: 4px solid #f59e0b; border-radius: 8px; padding: 20px;">
@@ -65,8 +58,6 @@ export function getLoginVerificationTemplate(codigo: string, nombre: string): Em
                                     </table>
                                 </td>
                             </tr>
-                            
-                             Footer 
                             <tr>
                                 <td style="background-color: #f8fafc; padding: 30px 40px; text-align: center; border-top: 1px solid #e2e8f0;">
                                     <p style="color: #94a3b8; margin: 0; font-size: 13px; line-height: 1.5;">
@@ -108,15 +99,12 @@ export function getNewBrachTemplate(
                 <tr>
                     <td align="center">
                         <table width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">
-                             Header 
                             <tr>
                                 <td style="background: linear-gradient(135deg, #2563eb 0%, #1e40af 100%); padding: 40px 30px; text-align: center;">
                                     <h1 style="color: #ffffff; margin: 0; font-size: 32px; font-weight: 700; letter-spacing: -0.5px;">cEats</h1>
                                     <p style="color: rgba(255, 255, 255, 0.9); margin: 8px 0 0 0; font-size: 14px; font-weight: 500;">Gestión Inteligente de Pedidos</p>
                                 </td>
                             </tr>
-                            
-                             Content 
                             <tr>
                                 <td style="padding: 50px 40px;">
                                     <h2 style="color: #1e293b; margin: 0 0 20px 0; font-size: 24px; font-weight: 600; text-align: center;">¡Bienvenido al Equipo!</h2>
@@ -124,8 +112,6 @@ export function getNewBrachTemplate(
                                     <p style="color: #64748b; line-height: 1.6; margin: 0 0 30px 0; font-size: 16px;">
                                         Has sido agregado como usuario de la sucursal <strong style="color: #1e293b;">${nombreSucursal}</strong> del restaurante <strong style="color: #1e293b;">${nombreRestaurante}</strong>.
                                     </p>
-                                    
-                                     Credentials Box 
                                     <table width="100%" cellpadding="0" cellspacing="0" style="margin: 30px 0;">
                                         <tr>
                                             <td style="background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%); border: 2px solid #2563eb; border-radius: 12px; padding: 30px;">
@@ -158,8 +144,6 @@ export function getNewBrachTemplate(
                                             </td>
                                         </tr>
                                     </table>
-                                    
-                                     Important Notice 
                                     <table width="100%" cellpadding="0" cellspacing="0" style="margin: 30px 0;">
                                         <tr>
                                             <td style="background-color: #fef3c7; border-left: 4px solid #f59e0b; border-radius: 8px; padding: 20px;">
@@ -182,8 +166,6 @@ export function getNewBrachTemplate(
                                     </table>
                                 </td>
                             </tr>
-                            
-                             Footer 
                             <tr>
                                 <td style="background-color: #f8fafc; padding: 30px 40px; text-align: center; border-top: 1px solid #e2e8f0;">
                                     <p style="color: #94a3b8; margin: 0; font-size: 13px; line-height: 1.5;">
@@ -231,8 +213,6 @@ export function getInvitationTemplate(
                                 <p style="color: rgba(255, 255, 255, 0.9); margin: 8px 0 0 0; font-size: 14px; font-weight: 500;">Gestión Inteligente de Pedidos</p>
                             </td>
                         </tr>
-                        
-                         Content 
                         <tr>
                             <td style="padding: 50px 40px;">
                                 <h2 style="color: #1e293b; margin: 0 0 20px 0; font-size: 24px; font-weight: 600; text-align: center;">¡Has Sido Invitado!</h2>
@@ -240,8 +220,6 @@ export function getInvitationTemplate(
                                 <p style="color: #64748b; line-height: 1.6; margin: 0 0 30px 0; font-size: 16px;">
                                     <strong style="color: #1e293b;">${nombreRestaurante}</strong> te ha invitado a unirte a su equipo como administrador de la sucursal <strong style="color: #1e293b;">"${nombreSucursal}"</strong>.
                                 </p>
-                                
-                                 Invitation Details 
                                 <table width="100%" cellpadding="0" cellspacing="0" style="margin: 30px 0;">
                                     <tr>
                                         <td style="background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%); border: 2px solid #2563eb; border-radius: 12px; padding: 30px;">
@@ -267,8 +245,6 @@ export function getInvitationTemplate(
                                         </td>
                                     </tr>
                                 </table>
-                                
-                                 Benefits 
                                 <table width="100%" cellpadding="0" cellspacing="0" style="margin: 30px 0;">
                                     <tr>
                                         <td style="background-color: #f0f9ff; border: 2px solid #0ea5e9; border-radius: 12px; padding: 30px;">
@@ -299,8 +275,6 @@ export function getInvitationTemplate(
                                         </td>
                                     </tr>
                                 </table>
-                                
-                                 CTA Button 
                                 <table width="100%" cellpadding="0" cellspacing="0" style="margin: 40px 0;">
                                     <tr>
                                         <td align="center">
@@ -310,8 +284,6 @@ export function getInvitationTemplate(
                                         </td>
                                     </tr>
                                 </table>
-                                
-                                 Expiration Notice 
                                 <table width="100%" cellpadding="0" cellspacing="0" style="margin: 30px 0;">
                                     <tr>
                                         <td style="background-color: #fef3c7; border-left: 4px solid #f59e0b; border-radius: 8px; padding: 20px;">
@@ -321,8 +293,6 @@ export function getInvitationTemplate(
                                         </td>
                                     </tr>
                                 </table>
-                                
-                                 Security Notice 
                                 <table width="100%" cellpadding="0" cellspacing="0" style="margin: 30px 0;">
                                     <tr>
                                         <td style="background-color: #f1f5f9; border-left: 4px solid #64748b; border-radius: 8px; padding: 20px;">
@@ -334,8 +304,6 @@ export function getInvitationTemplate(
                                 </table>
                             </td>
                         </tr>
-                        
-                         Footer 
                         <tr>
                             <td style="background-color: #f8fafc; padding: 30px 40px; text-align: center; border-top: 1px solid #e2e8f0;">
                                 <p style="color: #94a3b8; margin: 0 0 8px 0; font-size: 13px; line-height: 1.5;">

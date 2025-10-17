@@ -12,21 +12,16 @@ import { CheckCircle, XCircle, Clock, Loader2 } from 'lucide-react'
 
 interface InvitationData {
   id: string
-  token_invitacion: string
-  restaurante_id: string
-  email_sucursal: string
   nombre_sucursal: string
+  email_sucursal: string
   direccion: string
   telefono: string | null
   ciudad: string
   estado: string
   codigo_postal: string | null
-  usado: boolean
+  restaurante_id: string
+  restaurante_nombre: string
   fecha_expiracion: string
-  created_at: string
-  restaurante?: {
-    nombre: string
-  }
 }
 
 type PageState = 'loading' | 'valid' | 'expired' | 'used' | 'invalid' | 'creating'
@@ -53,37 +48,23 @@ export default function AceptarInvitacionPage() {
     try {
       setPageState('loading')
       
-      // Buscar la invitación
-      const { data: invitationData, error } = await supabase
-        .from('invitaciones_sucursales')
-        .select(`
-          *,
-          restaurante:restaurantes(nombre)
-        `)
-        .eq('token_invitacion', token)
-        .single()
+      // Llamar al endpoint de validación
+      const response = await fetch('/api/sucursales/validate-invitation', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ token }),
+      })
 
-      if (error || !invitationData) {
-        setPageState('invalid')
+      const result = await response.json()
+
+      if (!result.success) {
+        setPageState(result.status as PageState)
         return
       }
 
-      // Verificar si ya fue usada
-      if (invitationData.usado === true) {
-        setPageState('used')
-        return
-      }
-
-      // Verificar si expiró
-      const expirationDate = new Date(invitationData.fecha_expiracion)
-      const now = new Date()
-      
-      if (now > expirationDate) {
-        setPageState('expired')
-        return
-      }
-
-      setInvitation(invitationData)
+      setInvitation(result.invitation)
       setPageState('valid')
       
     } catch (error) {
@@ -126,7 +107,7 @@ export default function AceptarInvitacionPage() {
 
       if (authError) {
         if (authError.message.includes('already registered')) {
-          setErrors(['Ya existe una cuenta con este email'])
+          setErrors(['Ya existe una cuenta con este email. Contacta a support@ceats.app'])
         } else {
           setErrors(['Error al crear la cuenta: ' + authError.message])
         }
@@ -134,7 +115,7 @@ export default function AceptarInvitacionPage() {
       }
 
       if (!authData.user) {
-        setErrors(['Error al crear el usuario'])
+        setErrors(['Error al crear el usuario. Contacta a support@ceats.app'])
         return
       }
 
@@ -160,7 +141,7 @@ export default function AceptarInvitacionPage() {
 
       if (sucursalError) {
         console.error('Error al crear sucursal:', sucursalError)
-        setErrors(['Error al crear la sucursal: ' + sucursalError.message])
+        setErrors(['Error al crear la sucursal. Contacta a support@ceats.app'])
         return
       }
 
@@ -183,17 +164,15 @@ export default function AceptarInvitacionPage() {
 
       if (profileError) {
         console.error('Error al crear perfil:', profileError)
-        setErrors(['Error al crear el perfil: ' + profileError.message])
+        setErrors(['Error al crear el perfil. Contacta a support@ceats.app'])
         return
       }
 
       // 4. Marcar invitación como usada
       await supabase
         .from('invitaciones_sucursales')
-        .update({
-          usado: true
-        })
-        .eq('token_invitacion', token)
+        .update({ usado: true })
+        .eq('id', invitation.id)
 
       // 5. Iniciar sesión automáticamente
       const { error: signInError } = await supabase.auth.signInWithPassword({
@@ -211,7 +190,7 @@ export default function AceptarInvitacionPage() {
 
     } catch (error) {
       console.error('Error al aceptar invitación:', error)
-      setErrors(['Error inesperado al procesar la invitación'])
+      setErrors(['Error inesperado. Contacta a support@ceats.app'])
     } finally {
       setIsCreating(false)
     }
@@ -241,6 +220,9 @@ export default function AceptarInvitacionPage() {
                 <p className="text-gray-600">
                   Esta invitación no es válida o ha sido eliminada.
                 </p>
+                <p className="text-sm text-gray-500">
+                  Si crees que esto es un error, contacta a <a href="mailto:support@ceats.app" className="text-blue-600 underline">support@ceats.app</a>
+                </p>
                 <Button onClick={() => router.push('/login')} variant="outline">
                   Ir al Login
                 </Button>
@@ -257,7 +239,10 @@ export default function AceptarInvitacionPage() {
                 <Clock className="h-16 w-16 text-orange-500 mx-auto" />
                 <h2 className="text-xl font-semibold text-orange-600">Invitación Expirada</h2>
                 <p className="text-gray-600">
-                  Esta invitación ha expirado. Solicita una nueva invitación al administrador.
+                  Esta invitación ha expirado (máximo 3 días). Solicita una nueva invitación al administrador.
+                </p>
+                <p className="text-sm text-gray-500">
+                  ¿Necesitas ayuda? Contacta a <a href="mailto:support@ceats.app" className="text-blue-600 underline">support@ceats.app</a>
                 </p>
                 <Button onClick={() => router.push('/login')} variant="outline">
                   Ir al Login
@@ -275,7 +260,7 @@ export default function AceptarInvitacionPage() {
                 <CheckCircle className="h-16 w-16 text-green-500 mx-auto" />
                 <h2 className="text-xl font-semibold text-green-600">Invitación Ya Utilizada</h2>
                 <p className="text-gray-600">
-                  Esta invitación ya ha sido aceptada. Si tienes problemas para acceder, contacta al administrador.
+                  Esta invitación ya ha sido aceptada. Si tienes problemas para acceder, contacta a <a href="mailto:support@ceats.app" className="text-blue-600 underline">support@ceats.app</a>
                 </p>
                 <Button onClick={() => router.push('/login')}>
                   Ir al Login
@@ -291,7 +276,7 @@ export default function AceptarInvitacionPage() {
             <CardHeader>
               <CardTitle>Completar Registro de Sucursal</CardTitle>
               <CardDescription>
-                Has sido invitado a unirte a <strong>{invitation?.restaurante?.nombre}</strong> como sucursal <strong>{invitation?.nombre_sucursal}</strong>
+                Has sido invitado a unirte a <strong>{invitation?.restaurante_nombre}</strong> como sucursal <strong>{invitation?.nombre_sucursal}</strong>
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
